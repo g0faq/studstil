@@ -131,6 +131,13 @@ const redisStore = {
     const [rows] = await redis(['LRANGE', `log:${id}`, -limit, -1]);
     return rows.map((r) => JSON.parse(r));
   },
+  async getMeta(key) {
+    const [raw] = await redis(['GET', `m:${key}`]);
+    return raw ? JSON.parse(raw) : null;
+  },
+  async setMeta(key, value) {
+    await redis(value === null ? ['DEL', `m:${key}`] : ['SET', `m:${key}`, JSON.stringify(value)]);
+  },
   async activeSessions() {
     const [ids] = await redis(['SMEMBERS', 'active']);
     if (!ids.length) return [];
@@ -158,6 +165,7 @@ async function getSqlite(file = config.dbPath) {
       role TEXT NOT NULL, content TEXT NOT NULL, revealed TEXT,
       archived INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id, archived, id);
   `);
   for (const col of ['nudges', 'last_call']) { // миграция старой базы
@@ -205,6 +213,15 @@ const sqliteStore = {
   async log(id, limit = 30) {
     return (await getSqlite()).prepare('SELECT role, content, revealed, archived, created_at FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT ?')
       .all(String(id), limit).reverse().map((r) => ({ ...r, revealed: r.revealed ? JSON.parse(r.revealed) : null }));
+  },
+  async getMeta(key) {
+    const row = (await getSqlite()).prepare('SELECT v FROM meta WHERE k = ?').get(key);
+    return row ? JSON.parse(row.v) : null;
+  },
+  async setMeta(key, value) {
+    const d = await getSqlite();
+    if (value === null) d.prepare('DELETE FROM meta WHERE k = ?').run(key);
+    else d.prepare('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').run(key, JSON.stringify(value));
   },
   async activeSessions() {
     return (await getSqlite()).prepare('SELECT * FROM sessions WHERE scenario_id IS NOT NULL ORDER BY scenario_id, created_at').all().map(parse);

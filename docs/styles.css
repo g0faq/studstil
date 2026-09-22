@@ -203,3 +203,9 @@ button:disabled { opacity: .5; cursor: default; }
   .check path { stroke-dashoffset: 0; }
   .confetti, .particle { display: none; }
 }
+
+/* Комната ожидания */
+#wait { padding: 26px 26px 30px; }
+.wait-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; }
+.wait-body .swatches { max-width: 220px; margin-bottom: 8px; }
+.wait-body .lead { text-align: center; }

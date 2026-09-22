@@ -44,6 +44,22 @@
     <button class="btn-main btn-grad rise" style="--d:1.2s" id="enter-btn" type="submit" form="code-form">Войти</button>
   </section>
 
+  <!-- Комната ожидания -->
+  <section class="screen hidden" id="wait">
+    <div class="wait-body">
+      <svg class="swatches" viewBox="0 0 320 132" aria-hidden="true">
+        <path class="sw sw1" pathLength="1" d="M18 40 C 70 22, 130 30, 176 26 S 262 18, 300 30"/>
+        <path class="sw sw2" pathLength="1" d="M30 78 C 90 64, 150 84, 206 70 S 270 62, 292 74"/>
+        <path class="sw sw3" pathLength="1" d="M22 112 C 64 104, 104 116, 150 106"/>
+      </svg>
+      <div class="caps dim">Вы в игре</div>
+      <div class="display" id="wait-team" style="font-weight:800;font-size:34px"></div>
+      <p class="lead" style="max-width:280px">Клиентка уже ждёт за дверью. Игра начнётся, когда преподаватель даст старт.</p>
+      <div class="typing" style="align-self:center"><span></span><span></span><span></span></div>
+    </div>
+    <button class="ghost" id="wait-exit" type="button">Выйти и ввести другой код</button>
+  </section>
+
   <!-- Карточка клиента -->
   <section class="screen hidden" id="card">
     <div class="bar">

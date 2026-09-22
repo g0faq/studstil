@@ -18,11 +18,12 @@ export const finalOf = (sc) => ({
   message: sc.final_message, problem: sc.problem || '', tasks: sc.tasks || [sc.task], task_time: sc.task_time || '',
 });
 
-/** Привязка сессии к сценарию по коду команды. */
-export async function enterCode(sessionId, code, label = null) {
-  const scenario = findByCode(code);
-  if (!scenario) return { ok: false };
-  return { ok: true, ...(await startScenario(sessionId, scenario.id, label)) };
+/** Привязка сессии к сценарию по коду команды (коды игры или коды из файлов сценариев). */
+export async function enterCode(sessionId, code) {
+  const found = await teamByCode(code);
+  if (!found) return { ok: false };
+  const { team } = found;
+  return { ok: true, ...(await startScenario(sessionId, team.scenario_id, team.name)) };
 }
 
 /** Прямой старт по id сценария (CLI/eval). */
@@ -55,6 +56,8 @@ export async function handleMessage(sessionId, text, { llm = callPersona } = {})
   const { session, scenario } = state;
 
   if (session.finished) return { error: 'already_finished', reply: null, progress: state.progress, finished: true };
+  const g = await getGame();
+  if (g && g.phase === 'lobby') return { error: 'not_started', reply: null, progress: state.progress, finished: false };
   text = String(text || '').trim();
   if (!text) return { error: 'empty', reply: null, progress: state.progress, finished: false };
   if (text.length > config.maxInputChars) return { error: 'too_long', reply: null, progress: state.progress, finished: false };
@@ -106,8 +109,11 @@ export async function publicState(sessionId) {
   const ui = sc.ui || {};
   const revealed = sc.facts.filter((f) => session.revealed.includes(f.id))
     .map((f) => ({ id: f.id, label: f.label || f.id, text: f.text, required: !!f.required }));
-  const messages = (await store.history(sessionId, 200)).map((m) => ({ who: m.role === 'user' ? 'me' : 'them', text: m.content }));
+  const game = await getGame();
+  const phase = game ? game.phase : 'running'; // без игры (запасной вход по кодам сценариев) сразу играем
+  const messages = phase === 'lobby' ? [] : (await store.history(sessionId, 200)).map((m) => ({ who: m.role === 'user' ? 'me' : 'them', text: m.content }));
   return {
+    phase, team: session.label || null,
     client: {
       name: sc.persona.name, letter: sc.persona.name[0], meta: ui.meta || `${sc.persona.age}`,
       accent: ui.accent || '#FF7A1A', soft: ui.soft || 'rgba(255,122,26,0.4)',
@@ -135,6 +141,7 @@ export async function nextTrigger(sessionId) {
 /** Табло: прогресс команд (объединение открытых фактов всех сессий сценария). */
 export async function boardState() {
   const sessions = await store.activeSessions();
+  const game = await getGame();
   return [...loadScenarios().values()]
     .sort((a, b) => String(a.access_code).localeCompare(String(b.access_code), 'ru', { numeric: true }))
     .map((sc) => {
@@ -143,13 +150,74 @@ export async function boardState() {
       const req = sc.facts.filter((f) => f.required);
       return {
         id: sc.id, name: sc.persona.name, age: sc.persona.age, letter: sc.persona.name[0],
-        team: ((sc.ui?.meta || '').split('·').pop().trim() || sc.id).replace(/^./, (c) => c.toUpperCase()),
+        team: game?.teams.find((t) => t.scenario_id === sc.id)?.name
+          || ((sc.ui?.meta || '').split('·').pop().trim() || sc.id).replace(/^./, (c) => c.toUpperCase()),
         accent: sc.ui?.accent || '#FF7A1A', accent_green: sc.ui?.accent_green || null,
-        photo: sc.ui?.photo || null, photo_green: sc.ui?.photo_green || null, code: sc.access_code,
+        photo: sc.ui?.photo || null, photo_green: sc.ui?.photo_green || null,
+        code: game?.teams.find((t) => t.scenario_id === sc.id)?.code || sc.access_code,
         sessions: group.length, finished: group.some((s) => s.finished),
         done: req.filter((f) => union.has(f.id)).length, total: req.length,
         tags: req.map((f) => ({ label: f.label || f.id, on: union.has(f.id) })),
         extra: sc.facts.filter((f) => !f.required && union.has(f.id)).map((f) => f.label || f.id),
       };
     });
+}
+
+// ================= Игра: лобби → старт → дашборд =================
+// Состояние хранится под ключом 'game': { phase, teams: [{ scenario_id, name, code }], created_at, started_at }
+
+const GAME = 'game';
+
+function randomCodes(n) {
+  const out = new Set();
+  while (out.size < n) out.add(String(100 + Math.floor(Math.random() * 900)) + String(Math.floor(Math.random() * 10)));
+  return [...out];
+}
+
+export const getGame = () => store.getMeta(GAME);
+
+/** Преподаватель ввёл названия команд → выдаём случайные коды. Сценарии раздаются по порядку. */
+export async function createGame(names) {
+  const scenarios = [...loadScenarios().values()]
+    .sort((a, b) => String(a.access_code).localeCompare(String(b.access_code), 'ru', { numeric: true }));
+  const clean = (names || []).map((n) => String(n || '').trim().slice(0, 40));
+  const codes = randomCodes(scenarios.length);
+  const game = {
+    phase: 'lobby',
+    created_at: new Date().toISOString(),
+    started_at: null,
+    teams: scenarios.map((sc, i) => ({
+      scenario_id: sc.id, code: codes[i],
+      name: clean[i] || `Команда ${i + 1}`,
+      client: `${sc.persona.name}, ${sc.persona.age}`,
+    })),
+  };
+  await store.resetAll();
+  await store.setMeta(GAME, game);
+  return game;
+}
+
+export async function startGame() {
+  const game = await getGame();
+  if (!game) return null;
+  game.phase = 'running';
+  game.started_at = new Date().toISOString();
+  await store.setMeta(GAME, game);
+  return game;
+}
+
+export async function endGame() {
+  await store.setMeta(GAME, null);
+  return store.resetAll();
+}
+
+/** Команда по коду: сначала коды текущей игры, затем коды из файлов сценариев (запасной вариант). */
+export async function teamByCode(code) {
+  const c = String(code || '').trim();
+  const game = await getGame();
+  const team = game?.teams.find((t) => t.code === c);
+  if (team) return { team, game };
+  if (game) return null; // идёт игра — работают только её коды
+  const sc = findByCode(c);
+  return sc ? { team: { scenario_id: sc.id, code: c, name: null }, game: null } : null;
 }

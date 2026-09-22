@@ -11,6 +11,7 @@
   let state = null;
   let busy = false;
   let idleTimer = null;
+  let waitTimer = null;
   let shown = 0; // сколько сообщений уже анимировано (остальные не переигрываем)
   let fresh = new Set(); // индексы только что раскрывших факт ответов
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -43,6 +44,8 @@
   function go(screen) {
     for (const s of document.querySelectorAll('.screen')) s.classList.toggle('hidden', s.id !== screen);
     if (screen === 'chat') { scrollDown(); armIdle(); setTimeout(() => $('#q').focus({ preventScroll: true }), 50); } else clearTimeout(idleTimer);
+    clearInterval(waitTimer);
+    if (screen === 'wait') waitTimer = setInterval(checkStart, 3000);
     if (screen === 'done') renderDone();
   }
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
@@ -57,7 +60,7 @@
       const r = await api('/api/session', { code });
       sessionId = r.sessionId; store.set('bc-session', sessionId);
       hits.clear(); extra.length = 0; shown = 0;
-      apply(r.state); go('card');
+      apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : 'card');
     } catch (err) {
       $('#code-err').textContent = err.message;
       const f = $('.code-field'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
@@ -79,6 +82,7 @@
     `«${c.card_hint}»`.split(' ').forEach((w, i) => { const sp = document.createElement('span'); sp.className = 'w'; sp.style.setProperty('--i', i); sp.textContent = w; q.append(sp, ' '); });
     const photo = (green && c.photo_green) || c.photo;
     for (const el of document.querySelectorAll('.avatar[data-f="letter"]')) { el.querySelector('img')?.remove(); if (photo) addPhoto(el, photo); }
+    $('#wait-team').textContent = s.team || 'Ваша команда';
     renderProgress(); renderMsgs(); renderChips();
   }
 
@@ -87,6 +91,14 @@
     if (el.querySelector('img')) return;
     const img = new Image(); img.alt = ''; img.onerror = () => img.remove(); img.src = src;
     el.append(img);
+  }
+
+  // Ждём, пока преподаватель начнёт игру
+  async function checkStart() {
+    try {
+      const r = await api('/api/session?id=' + encodeURIComponent(sessionId));
+      if (r.state.phase !== 'lobby') { apply(r.state); go('card'); }
+    } catch (e) { if (e.status === 404) resetToStart(); }
   }
 
   function renderProgress() {
@@ -261,9 +273,10 @@
   function resetToStart() {
     store.set('bc-session', null); sessionId = null; state = null; hits.clear(); extra.length = 0; shown = 0; fresh = new Set();
     $('#app').style.removeProperty('--accent'); $('#app').style.removeProperty('--accent-soft');
-    $('#code').value = ''; go('start');
+    clearInterval(waitTimer); $('#code').value = ''; go('start');
   }
   $('#restart-btn').onclick = resetToStart;
+  $('#wait-exit').onclick = resetToStart;
 
   $('#dossier-btn').onclick = () => {
     const d = $('#dossier'); d.classList.toggle('hidden');
@@ -273,7 +286,7 @@
   // --- Восстановление после перезагрузки страницы ---
   if (sessionId) {
     api('/api/session?id=' + encodeURIComponent(sessionId))
-      .then((r) => { apply(r.state); go(r.state.finished ? 'done' : 'chat'); })
+      .then((r) => { apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : r.state.finished ? 'done' : 'chat'); })
       .catch(() => store.set('bc-session', null));
   }
 })();
