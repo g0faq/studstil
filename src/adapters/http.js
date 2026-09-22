@@ -105,10 +105,10 @@ async function route(req, res) {
   }
 
   if (r === 'POST /api/message') {
-    const { sessionId, text } = await readBody(req);
+    const { sessionId, text, deviceId } = await readBody(req);
     const s = sid(sessionId);
     if (!s) return send(res, 404, { error: ERR_TEXT.no_session });
-    const out = await handleMessage(s, text);
+    const out = await handleMessage(s, text, { deviceId: typeof deviceId === 'string' ? deviceId.slice(0, 40) : null });
     if (out.error) return send(res, out.error === 'no_session' ? 404 : 400, { error: ERR_TEXT[out.error] || out.error, code: out.error });
     const state = await publicState(s);
     return send(res, 200, { reply: out.reply, newly: state.revealed.filter((f) => out.newly_revealed.includes(f.id)), state });

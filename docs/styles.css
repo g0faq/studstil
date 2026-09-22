@@ -70,7 +70,10 @@ button:disabled { opacity: .5; cursor: default; }
 .quote-text { font-family: Unbounded, sans-serif; font-size: 21px; line-height: 1.35; letter-spacing: -0.02em; text-wrap: pretty; }
 
 /* Чат */
-.chat-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 52px 20px 12px; }
+.chat-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 52px 16px 12px; }
+.chat-head .display { font-size: 16px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-head #status { white-space: nowrap; }
+.chat-head .pill { padding: 8px 10px; font-size: 11px; }
 .progress { flex: none; margin: 0 20px 10px; padding: 14px 16px; border-radius: 20px; display: flex; flex-direction: column; gap: 10px; max-height: 45%; overflow-y: auto; }
 .track { height: 8px; border-radius: 99px; background: var(--chip); overflow: hidden; }
 .fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--neon)); transition: width .6s cubic-bezier(.4,0,.2,1); }

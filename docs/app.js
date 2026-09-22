@@ -234,7 +234,7 @@
     fresh = new Set();
     renderMsgs(true);
     try {
-      const r = await api('/api/message', { sessionId, text });
+      const r = await api('/api/message', { sessionId, text, deviceId });
       const before = state.messages.length;
       const prevShown = shown;
       apply(r.state);

@@ -67,7 +67,7 @@ export async function getSessionState(sessionId) {
  * → { reply, newly_revealed, progress, finished, final?, error? }
  * error: 'no_session' | 'empty' | 'too_long' | 'rate_limited' | 'already_finished' | 'llm_error'
  */
-export async function handleMessage(sessionId, text, { llm = callPersona } = {}) {
+export async function handleMessage(sessionId, text, { llm = callPersona, deviceId = null } = {}) {
   const state = await getSessionState(sessionId);
   if (!state) return { error: 'no_session', reply: null, finished: false };
   const { session, scenario } = state;
@@ -81,12 +81,20 @@ export async function handleMessage(sessionId, text, { llm = callPersona } = {})
   if (!text) return { error: 'empty', reply: null, progress: state.progress, finished: false };
   if (text.length > config.maxInputChars) return { error: 'too_long', reply: null, progress: state.progress, finished: false };
 
-  // Rate limit хранится в сессии: на serverless память процесса между запросами не сохраняется
+  // Защита от «залипшей» кнопки: считаем по устройству, чтобы команда могла спрашивать параллельно
   const now = Date.now();
-  if (now - (session.last_call || 0) < config.rateLimitMs) {
+  const byDev = { ...(session.last_by || {}) };
+  const lastOwn = deviceId ? byDev[deviceId] || 0 : session.last_call || 0;
+  if (now - lastOwn < config.rateLimitMs) {
     return { error: 'rate_limited', reply: null, progress: state.progress, finished: false };
   }
-  await store.updateSession(sessionId, { last_call: now });
+  if (deviceId) {
+    byDev[deviceId] = now;
+    for (const k of Object.keys(byDev)) if (now - byDev[k] > 300000) delete byDev[k]; // чистим старые
+    await store.updateSession(sessionId, { last_by: byDev, last_call: now });
+  } else {
+    await store.updateSession(sessionId, { last_call: now });
+  }
 
   const history = await store.history(sessionId, config.historyLimit);
   const messages = [
@@ -99,7 +107,7 @@ export async function handleMessage(sessionId, text, { llm = callPersona } = {})
   try {
     out = await llm(messages);
   } catch (e) {
-    await store.updateSession(sessionId, { last_call: 0 });
+    await store.updateSession(sessionId, deviceId ? { last_by: { ...(session.last_by || {}), [deviceId]: 0 } } : { last_call: 0 });
     console.error('[llm]', e.status || '', e.message);
     return { error: 'llm_error', reply: null, progress: state.progress, finished: false };
   }
@@ -295,18 +303,22 @@ export async function resultsState() {
     if (!group.length && !game) continue;
     const req = sc.facts.filter((f) => f.required);
 
-    // Собираем лог всех устройств команды
+    // Собираем лог всех устройств команды — только за текущую игру
+    const since = game?.started_at || group[0]?.created_at || null;
+    const ts = (v) => (v ? new Date(String(v).includes('T') ? v : String(v).replace(' ', 'T') + 'Z').getTime() : 0);
     let log = [];
     for (const s of group) log = log.concat(await store.log(s.chat_id, 400));
-    log.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    log = log
+      .filter((m) => !since || ts(m.created_at) >= ts(since))
+      .sort((a, b) => ts(a.created_at) - ts(b.created_at));
 
-    const started = log[0]?.created_at ? new Date(log[0].created_at) : null;
+    const started = since ? ts(since) : (log[0] ? ts(log[0].created_at) : null);
     const questions = log.filter((m) => m.role === 'user').length;
     const revealAt = new Map();
     for (const m of log) {
       for (const id of m.revealed || []) if (!revealAt.has(id)) revealAt.set(id, m.created_at);
     }
-    const minutes = (iso) => (started && iso ? Math.max(0, Math.round((new Date(iso) - started) / 60000)) : null);
+    const minutes = (iso) => (started && iso ? Math.max(0, Math.round((ts(iso) - started) / 60000)) : null);
     const union = new Set(group.flatMap((s) => s.revealed));
     const done = req.filter((f) => union.has(f.id)).length;
     const lastRequired = req.filter((f) => revealAt.has(f.id)).map((f) => revealAt.get(f.id)).sort().pop();

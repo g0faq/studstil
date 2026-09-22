@@ -101,7 +101,7 @@ const redisStore = {
     return raw ? JSON.parse(raw) : null;
   },
   async startSession(id, scenarioId, label = null) {
-    const s = { chat_id: String(id), scenario_id: scenarioId, revealed: [], finished: false, label, nudges: 0, last_call: 0, devices: [], created_at: now() };
+    const s = { chat_id: String(id), scenario_id: scenarioId, revealed: [], finished: false, label, nudges: 0, last_call: 0, devices: [], last_by: {}, created_at: now() };
     await redis(['SET', `s:${id}`, JSON.stringify(s)], ['SADD', 'active', String(id)], ['DEL', `h:${id}`]);
   },
   async updateSession(id, patch) {
@@ -184,9 +184,9 @@ const sqliteStore = {
     return parse((await getSqlite()).prepare('SELECT * FROM sessions WHERE chat_id = ?').get(String(id)));
   },
   async startSession(id, scenarioId, label = null) {
-    (await getSqlite()).prepare(`INSERT INTO sessions (chat_id, scenario_id, revealed, finished, label, nudges, last_call, devices) VALUES (?, ?, '[]', 0, ?, 0, 0, '[]')
+    (await getSqlite()).prepare(`INSERT INTO sessions (chat_id, scenario_id, revealed, finished, label, nudges, last_call, devices, created_at, updated_at) VALUES (?, ?, '[]', 0, ?, 0, 0, '[]', ?, ?)
       ON CONFLICT(chat_id) DO UPDATE SET scenario_id = excluded.scenario_id, revealed = '[]', finished = 0, nudges = 0, last_call = 0, devices = '[]',
-      label = excluded.label, created_at = datetime('now'), updated_at = datetime('now')`).run(String(id), scenarioId, label);
+      label = excluded.label, created_at = excluded.created_at, updated_at = excluded.updated_at`).run(String(id), scenarioId, label, now(), now());
   },
   async updateSession(id, patch) {
     const cur = await this.getSession(id);
@@ -207,8 +207,8 @@ const sqliteStore = {
     return d.prepare('DELETE FROM sessions').run().changes;
   },
   async addMessage(id, scenarioId, role, content, revealed = null) {
-    (await getSqlite()).prepare('INSERT INTO messages (chat_id, scenario_id, role, content, revealed) VALUES (?, ?, ?, ?, ?)')
-      .run(String(id), scenarioId, role, content, revealed ? JSON.stringify(revealed) : null);
+    (await getSqlite()).prepare('INSERT INTO messages (chat_id, scenario_id, role, content, revealed, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(String(id), scenarioId, role, content, revealed ? JSON.stringify(revealed) : null, now());
   },
   async history(id, limit) {
     return (await getSqlite()).prepare(`SELECT role, content FROM messages WHERE chat_id = ? AND archived = 0 AND role IN ('user','assistant')
