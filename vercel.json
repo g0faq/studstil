@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "mkdir -p .vercel-static && echo ok > .vercel-static/index.txt",
+  "outputDirectory": ".vercel-static",
+  "installCommand": "npm ci --omit=optional",
+  "regions": ["fra1"],
+  "functions": {
+    "api/index.js": { "maxDuration": 30, "includeFiles": "scenarios/**" }
+  },
+  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }]
+}

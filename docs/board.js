@@ -23,7 +23,8 @@
       card.style.setProperty('--accent', (document.documentElement.dataset.palette === 'green' && t.accent_green) || t.accent);
       const head = el('div'); head.style.cssText = 'display:flex;align-items:center;gap:14px;position:relative';
       const av = el('div', 'avatar', t.letter); av.style.cssText = 'width:60px;height:60px;font-size:24px';
-      if (t.photo) { const img = new Image(); img.alt = ''; img.onerror = () => img.remove(); img.src = t.photo; av.append(img); }
+      const photo = (document.documentElement.dataset.palette === 'green' && t.photo_green) || t.photo;
+      if (photo) { const img = new Image(); img.alt = ''; img.onerror = () => img.remove(); img.src = photo; av.append(img); }
       const who = el('div'); who.style.cssText = 'display:flex;flex-direction:column;gap:2px';
       const tn = el('div', 'display', t.team); tn.style.cssText = 'font-weight:600;font-size:20px';
       who.append(tn, el('div', 'dim', `${t.name}, ${t.age} · код ${t.code}`));

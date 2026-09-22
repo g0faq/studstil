@@ -4,8 +4,6 @@ import { getScenario, findByCode, loadScenarios } from './scenarios.js';
 import { buildSystemPrompt } from './prompt.js';
 import { callPersona } from './llm.js';
 
-const lastCall = new Map();
-
 export function progressOf(scenario, revealed) {
   const req = scenario.facts.filter((f) => f.required);
   return {
@@ -16,29 +14,31 @@ export function progressOf(scenario, revealed) {
   };
 }
 
+export const finalOf = (sc) => ({
+  message: sc.final_message, problem: sc.problem || '', tasks: sc.tasks || [sc.task], task_time: sc.task_time || '',
+});
+
 /** Привязка сессии к сценарию по коду команды. */
-export function enterCode(sessionId, code, label = null) {
+export async function enterCode(sessionId, code, label = null) {
   const scenario = findByCode(code);
   if (!scenario) return { ok: false };
-  return { ok: true, ...startScenario(sessionId, scenario.id, label) };
+  return { ok: true, ...(await startScenario(sessionId, scenario.id, label)) };
 }
 
 /** Прямой старт по id сценария (CLI/eval). */
-export function startScenario(sessionId, scenarioId, label = null) {
+export async function startScenario(sessionId, scenarioId, label = null) {
   const scenario = getScenario(scenarioId);
   if (!scenario) throw new Error(`Сценарий "${scenarioId}" не найден`);
-  store.resetSession(sessionId);
-  store.startSession(sessionId, scenario.id, label);
-  store.addMessage(sessionId, scenario.id, 'assistant', scenario.greeting);
+  await store.resetSession(sessionId);
+  await store.startSession(sessionId, scenario.id, label);
+  await store.addMessage(sessionId, scenario.id, 'assistant', scenario.greeting);
   return { scenario, greeting: scenario.greeting, progress: progressOf(scenario, []) };
 }
 
-export function resetSession(sessionId) {
-  store.resetSession(sessionId);
-}
+export const resetSession = (sessionId) => store.resetSession(sessionId);
 
-export function getSessionState(sessionId) {
-  const s = store.getSession(sessionId);
+export async function getSessionState(sessionId) {
+  const s = await store.getSession(sessionId);
   if (!s?.scenario_id) return null;
   const scenario = getScenario(s.scenario_id);
   return scenario ? { session: s, scenario, progress: progressOf(scenario, s.revealed) } : null;
@@ -46,29 +46,27 @@ export function getSessionState(sessionId) {
 
 /**
  * Главная функция ядра.
- * → { reply, progress, finished, final?: { message, task }, error? }
- * error: 'no_session' | 'too_long' | 'rate_limited' | 'already_finished' | 'llm_error'
+ * → { reply, newly_revealed, progress, finished, final?, error? }
+ * error: 'no_session' | 'empty' | 'too_long' | 'rate_limited' | 'already_finished' | 'llm_error'
  */
 export async function handleMessage(sessionId, text, { llm = callPersona } = {}) {
-  const state = getSessionState(sessionId);
+  const state = await getSessionState(sessionId);
   if (!state) return { error: 'no_session', reply: null, finished: false };
   const { session, scenario } = state;
 
-  if (session.finished) {
-    return { error: 'already_finished', reply: null, progress: state.progress, finished: true };
-  }
+  if (session.finished) return { error: 'already_finished', reply: null, progress: state.progress, finished: true };
   text = String(text || '').trim();
   if (!text) return { error: 'empty', reply: null, progress: state.progress, finished: false };
-  if (text.length > config.maxInputChars) {
-    return { error: 'too_long', reply: null, progress: state.progress, finished: false };
-  }
+  if (text.length > config.maxInputChars) return { error: 'too_long', reply: null, progress: state.progress, finished: false };
+
+  // Rate limit хранится в сессии: на serverless память процесса между запросами не сохраняется
   const now = Date.now();
-  if (now - (lastCall.get(sessionId) || 0) < config.rateLimitMs) {
+  if (now - (session.last_call || 0) < config.rateLimitMs) {
     return { error: 'rate_limited', reply: null, progress: state.progress, finished: false };
   }
-  lastCall.set(sessionId, now);
+  await store.updateSession(sessionId, { last_call: now });
 
-  const history = store.history(sessionId, config.historyLimit);
+  const history = await store.history(sessionId, config.historyLimit);
   const messages = [
     { role: 'system', content: buildSystemPrompt(scenario, session.revealed) },
     ...history,
@@ -79,7 +77,7 @@ export async function handleMessage(sessionId, text, { llm = callPersona } = {})
   try {
     out = await llm(messages);
   } catch (e) {
-    lastCall.delete(sessionId);
+    await store.updateSession(sessionId, { last_call: 0 });
     console.error('[llm]', e.status || '', e.message);
     return { error: 'llm_error', reply: null, progress: state.progress, finished: false };
   }
@@ -92,34 +90,29 @@ export async function handleMessage(sessionId, text, { llm = callPersona } = {})
   const progress = progressOf(scenario, revealed);
   const finished = progress.required_open === progress.required_total;
 
-  store.addMessage(sessionId, scenario.id, 'user', text);
-  store.addMessage(sessionId, scenario.id, 'assistant', reply, newly);
-  if (finished) store.addMessage(sessionId, scenario.id, 'system', `FINISHED\n${scenario.final_message}`);
-  store.updateSession(sessionId, { revealed, finished });
+  await store.addMessage(sessionId, scenario.id, 'user', text);
+  await store.addMessage(sessionId, scenario.id, 'assistant', reply, newly);
+  if (finished) await store.addMessage(sessionId, scenario.id, 'system', `FINISHED\n${scenario.final_message}`);
+  await store.updateSession(sessionId, { revealed, finished });
 
-  return {
-    reply,
-    newly_revealed: newly,
-    progress,
-    finished,
-    ...(finished ? { final: finalOf(scenario) } : {}),
-  };
+  return { reply, newly_revealed: newly, progress, finished, ...(finished ? { final: finalOf(scenario) } : {}) };
 }
 
 /** Состояние сессии для веб-клиента: только то, что студентам можно видеть. */
-export function publicState(sessionId) {
-  const st = getSessionState(sessionId);
+export async function publicState(sessionId) {
+  const st = await getSessionState(sessionId);
   if (!st) return null;
   const { scenario: sc, session, progress } = st;
   const ui = sc.ui || {};
   const revealed = sc.facts.filter((f) => session.revealed.includes(f.id))
     .map((f) => ({ id: f.id, label: f.label || f.id, text: f.text, required: !!f.required }));
-  const messages = store.history(sessionId, 200).map((m) => ({ who: m.role === 'user' ? 'me' : 'them', text: m.content }));
+  const messages = (await store.history(sessionId, 200)).map((m) => ({ who: m.role === 'user' ? 'me' : 'them', text: m.content }));
   return {
     client: {
       name: sc.persona.name, letter: sc.persona.name[0], meta: ui.meta || `${sc.persona.age}`,
       accent: ui.accent || '#FF7A1A', soft: ui.soft || 'rgba(255,122,26,0.4)',
-      accent_green: ui.accent_green || null, soft_green: ui.soft_green || null, photo: ui.photo || null,
+      accent_green: ui.accent_green || null, soft_green: ui.soft_green || null,
+      photo: ui.photo || null, photo_green: ui.photo_green || null,
       card_hint: ui.card_hint || sc.greeting, chips: ui.chips || [],
     },
     revealed, progress, finished: session.finished, messages,
@@ -127,38 +120,36 @@ export function publicState(sessionId) {
   };
 }
 
-export const finalOf = (sc) => ({
-  message: sc.final_message, problem: sc.problem || '', tasks: sc.tasks || [sc.task], task_time: sc.task_time || '',
-});
-
-/** Следующая подсказка-«триггер», если команда зависла. */
-const nudges = new Map();
-export function nextTrigger(sessionId) {
-  const st = getSessionState(sessionId);
+/** Следующая подсказка-«триггер», если команда зависла. Счётчик хранится в сессии. */
+export async function nextTrigger(sessionId) {
+  const st = await getSessionState(sessionId);
   if (!st || st.session.finished) return null;
   const list = st.scenario.triggers || [];
-  const i = nudges.get(sessionId) || 0;
+  const i = st.session.nudges || 0;
   if (i >= list.length) return null;
-  nudges.set(sessionId, i + 1);
-  store.addMessage(sessionId, st.scenario.id, 'assistant', list[i]);
+  await store.updateSession(sessionId, { nudges: i + 1 });
+  await store.addMessage(sessionId, st.scenario.id, 'assistant', list[i]);
   return list[i];
 }
 
 /** Табло: прогресс команд (объединение открытых фактов всех сессий сценария). */
-export function boardState() {
-  const sessions = store.activeSessions();
-  return [...loadScenarios().values()].sort((a, b) => String(a.access_code).localeCompare(String(b.access_code), 'ru', { numeric: true })).map((sc) => {
-    const group = sessions.filter((s) => s.scenario_id === sc.id);
-    const union = new Set(group.flatMap((s) => s.revealed));
-    const req = sc.facts.filter((f) => f.required);
-    return {
-      id: sc.id, name: sc.persona.name, age: sc.persona.age, letter: sc.persona.name[0],
-      team: ((sc.ui?.meta || '').split('·').pop().trim() || sc.id).replace(/^./, (c) => c.toUpperCase()),
-      accent: sc.ui?.accent || '#FF7A1A', accent_green: sc.ui?.accent_green || null, photo: sc.ui?.photo || null, code: sc.access_code,
-      sessions: group.length, finished: group.some((s) => s.finished),
-      done: req.filter((f) => union.has(f.id)).length, total: req.length,
-      tags: req.map((f) => ({ label: f.label || f.id, on: union.has(f.id) })),
-      extra: sc.facts.filter((f) => !f.required && union.has(f.id)).map((f) => f.label || f.id),
-    };
-  });
+export async function boardState() {
+  const sessions = await store.activeSessions();
+  return [...loadScenarios().values()]
+    .sort((a, b) => String(a.access_code).localeCompare(String(b.access_code), 'ru', { numeric: true }))
+    .map((sc) => {
+      const group = sessions.filter((s) => s.scenario_id === sc.id);
+      const union = new Set(group.flatMap((s) => s.revealed));
+      const req = sc.facts.filter((f) => f.required);
+      return {
+        id: sc.id, name: sc.persona.name, age: sc.persona.age, letter: sc.persona.name[0],
+        team: ((sc.ui?.meta || '').split('·').pop().trim() || sc.id).replace(/^./, (c) => c.toUpperCase()),
+        accent: sc.ui?.accent || '#FF7A1A', accent_green: sc.ui?.accent_green || null,
+        photo: sc.ui?.photo || null, photo_green: sc.ui?.photo_green || null, code: sc.access_code,
+        sessions: group.length, finished: group.some((s) => s.finished),
+        done: req.filter((f) => union.has(f.id)).length, total: req.length,
+        tags: req.map((f) => ({ label: f.label || f.id, on: union.has(f.id) })),
+        extra: sc.facts.filter((f) => !f.required && union.has(f.id)).map((f) => f.label || f.id),
+      };
+    });
 }

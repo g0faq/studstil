@@ -109,6 +109,7 @@
     ],
     "accent_green": "#FF5A5F",
     "soft_green": "rgba(255,90,95,0.36)",
-    "photo": "img/alina.webp"
+    "photo": "img/alina.svg",
+    "photo_green": "img/alina-green.svg"
   }
 }

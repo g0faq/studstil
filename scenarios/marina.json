@@ -91,6 +91,7 @@
     ],
     "accent_green": "#9FE870",
     "soft_green": "rgba(159,232,112,0.36)",
-    "photo": "img/marina.webp"
+    "photo": "img/marina.svg",
+    "photo_green": "img/marina-green.svg"
   }
 }

@@ -109,6 +109,7 @@
     ],
     "accent_green": "#3DDC84",
     "soft_green": "rgba(61,220,132,0.4)",
-    "photo": "img/olga.webp"
+    "photo": "img/olga.svg",
+    "photo_green": "img/olga-green.svg"
   }
 }

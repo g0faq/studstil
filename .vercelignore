@@ -1,0 +1,9 @@
+docs
+design
+data
+eval
+deploy
+.env
+.env.*
+qr.png
+node_modules

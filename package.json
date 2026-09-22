@@ -16,10 +16,12 @@
     "publish-site": "bash scripts/publish-site.sh"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
     "dotenv": "^16.4.0",
     "grammy": "^1.30.0",
     "openai": "^4.70.0",
     "qrcode": "^1.5.4"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.0.0"
   }
 }

@@ -1,11 +1,10 @@
 import { loadScenarios } from './core/scenarios.js';
-import { getDb } from './core/db.js';
+import { storeKind } from './core/db.js';
 import { config } from './config.js';
 import { createHttpServer } from './adapters/http.js';
 
 const scenarios = loadScenarios(); // падаем сразу, если сценарий битый
-getDb();
-console.log(`Сценарии: ${[...scenarios.keys()].join(', ')} | модель: ${config.openaiModel}${config.openaiBaseUrl ? ` через ${config.openaiBaseUrl}` : ''}`);
+console.log(`Сценарии: ${[...scenarios.keys()].join(', ')} | хранилище: ${storeKind} | модель: ${config.openaiModel}${config.openaiBaseUrl ? ` через ${config.openaiBaseUrl}` : ''}`);
 
 // Веб: API (+ статика docs/ для локального запуска)
 const server = createHttpServer();

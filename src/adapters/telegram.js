@@ -24,16 +24,16 @@ export function createBot() {
   const bot = new Bot(config.telegramToken);
 
   bot.command('start', async (ctx) => {
-    const st = getSessionState(ctx.chat.id);
+    const st = await getSessionState(ctx.chat.id);
     if (st && !st.session.finished) {
       return ctx.reply(`У вас уже идёт разговор с клиентом (${st.scenario.persona.name}). Продолжайте задавать вопросы.\n/restart — начать заново с вводом кода.`);
     }
-    resetSession(ctx.chat.id);
+    await resetSession(ctx.chat.id);
     return ctx.reply(ASK_CODE);
   });
 
   bot.command('restart', async (ctx) => {
-    resetSession(ctx.chat.id);
+    await resetSession(ctx.chat.id);
     return ctx.reply('Сессия сброшена. ' + ASK_CODE);
   });
 
@@ -45,7 +45,7 @@ export function createBot() {
   bot.command('status', async (ctx) => {
     if (!isAdmin(ctx)) return;
     const scenarios = loadScenarios();
-    const sessions = store.activeSessions();
+    const sessions = await store.activeSessions();
     if (!sessions.length) return ctx.reply('Активных сессий нет.');
     const lines = [];
     for (const [id, sc] of scenarios) {
@@ -65,7 +65,7 @@ export function createBot() {
 
   bot.command('reset_all', async (ctx) => {
     if (!isAdmin(ctx)) return;
-    const n = store.resetAll();
+    const n = await store.resetAll();
     return ctx.reply(`Сброшено сессий: ${n}. Логи сохранены (помечены как архив). Участникам нужно заново нажать /start.`);
   });
 
@@ -73,11 +73,11 @@ export function createBot() {
     if (!isAdmin(ctx)) return;
     const chatId = ctx.match?.trim();
     if (!chatId) return ctx.reply('Использование: /log <chat_id> (chat_id видно в /status)');
-    const rows = store.log(chatId, 30);
+    const rows = await store.log(chatId, 30);
     if (!rows.length) return ctx.reply('Сообщений нет.');
     const icon = { user: '🧑‍🎓', assistant: '👩', system: '⚙️' };
     const text = rows.map((r) => {
-      const rv = r.revealed && r.revealed !== '[]' ? ` 🔓${r.revealed}` : '';
+      const rv = r.revealed?.length ? ` 🔓${r.revealed.join(', ')}` : '';
       return `${r.archived ? '🗄' : ''}${icon[r.role] || ''} ${r.content}${rv}`;
     }).join('\n\n');
     return ctx.reply(cut(text));
@@ -89,8 +89,8 @@ export function createBot() {
     const text = ctx.message.text;
     if (text.startsWith('/')) return;
 
-    if (!getSessionState(chatId)) {
-      const res = enterCode(chatId, text, who(ctx));
+    if (!(await getSessionState(chatId))) {
+      const res = await enterCode(chatId, text, who(ctx));
       if (!res.ok) return ctx.reply(BAD_CODE);
       return ctx.reply(`✅ Код принят. К вам пришёл клиент. Выясните, с чем он пришёл!\n\n👩 ${res.greeting}`);
     }

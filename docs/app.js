@@ -63,7 +63,8 @@
     app.style.setProperty('--accent', (green && c.accent_green) || c.accent);
     app.style.setProperty('--accent-soft', (green && c.soft_green) || c.soft);
     for (const el of document.querySelectorAll('[data-f]')) el.textContent = c[el.dataset.f] ?? '';
-    if (c.photo) for (const el of document.querySelectorAll('.avatar[data-f="letter"]')) addPhoto(el, c.photo);
+    const photo = (green && c.photo_green) || c.photo;
+    for (const el of document.querySelectorAll('.avatar[data-f="letter"]')) { el.querySelector('img')?.remove(); if (photo) addPhoto(el, photo); }
     renderProgress(); renderMsgs(); renderChips();
   }
 

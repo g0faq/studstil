@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const DIR = path.resolve(process.cwd(), 'scenarios');
+// Относительно модуля, а не cwd: на Vercel рабочая папка другая
+const DIR = process.env.SCENARIOS_DIR || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../scenarios');
 
 function validate(s, file) {
   const err = (m) => { throw new Error(`Сценарий ${file}: ${m}`); };

@@ -4,3 +4,6 @@ data/
 qr.png
 .claude/
 .DS_Store
+.vercel
+.env*
+.vercel-static

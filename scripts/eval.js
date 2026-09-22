@@ -3,11 +3,11 @@
 import fs from 'node:fs';
 import { argv } from 'node:process';
 import { config } from '../src/config.js';
-import { getDb } from '../src/core/db.js';
+import { useSqlite } from '../src/core/db.js';
 import { loadScenarios } from '../src/core/scenarios.js';
 import { startScenario, handleMessage } from '../src/core/engine.js';
 
-getDb(':memory:');
+await useSqlite(':memory:');
 config.rateLimitMs = 0;
 if (!config.openaiKey) { console.error('❌ OPENAI_API_KEY не задан в .env — eval ходит в реальную модель.'); process.exit(1); }
 const only = (() => { const i = argv.indexOf('--scenario'); return i > -1 ? argv[i + 1] : null; })();
@@ -24,7 +24,7 @@ const rows = [];
 
 async function runCase(sc, kind, q, expect) {
   const sid = `eval:${sc.id}:${Math.random()}`;
-  startScenario(sid, sc.id);
+  await startScenario(sid, sc.id);
   const res = await handleMessage(sid, q);
   if (res.error) return { kind, q, ok: false, got: `ERROR ${res.error}`, expect: expect?.join(',') || '—(req)', reply: '' };
   const got = res.newly_revealed;
