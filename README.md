@@ -76,7 +76,11 @@ npm run set-domain -- domain.ru
 Старые A-записи для `@` (заглушка Timeweb) нужно удалить. NS-серверы должны остаться Timeweb (`ns1.timeweb.ru` … `ns4.timeweb.org`).
 
 ### 3. GitHub Pages
-Залить репозиторий на GitHub, затем Settings → Pages → Deploy from a branch → `main` / `/docs`. В поле Custom domain указать `domain.ru` и после выпуска сертификата включить Enforce HTTPS (сертификат выпускается от 15 минут до 24 часов после обновления DNS).
+Код и сценарии лежат в приватном репозитории `g0faq/studstil`. Сайт публикуется в отдельный публичный `g0faq/studstil-site`: там только `docs/`, без фактов и ключей, чтобы студенты не нашли «ответы».
+```bash
+npm run publish-site      # выгрузить docs/ в studstil-site
+```
+Pages уже включён (ветка `main`, домен `studstil.ru`). После обновления DNS: Settings → Pages → Enforce HTTPS.
 
 ### 4. API на VPS вне РФ
 OpenAI не работает с российских IP. Подойдёт, например, Timeweb Cloud в Нидерландах или Германии (Ubuntu 24.04, минимальный тариф).
@@ -92,6 +96,10 @@ ssh root@IP 'bash /root/beauty-case/deploy/setup-vps.sh api.domain.ru'
 ```bash
 npm run qr -- https://domain.ru
 ```
+
+## Оформление
+- Палитра по умолчанию оранжево-чёрная. Альтернатива — зелёная с каплей красного: `studstil.ru/?palette=green`, вернуть: `?palette=orange`. Выбор запоминается на устройстве.
+- Фото героинь: положить `docs/img/olga.webp`, `marina.webp`, `alina.webp` (квадрат от 600×600). Путь задаётся в `ui.photo` сценария. Пока фото нет, показывается буква.
 
 ## На уроке
 1. Открыть на проекторе `https://domain.ru/board.html?key=ADMIN_KEY`. Там есть таймер (клик — старт или пауза, двойной клик — сброс, длительность задаётся через `?min=15`) и кнопка «Сбросить все сессии».
