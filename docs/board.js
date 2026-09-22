@@ -87,9 +87,9 @@
   $('#login-btn').onclick = () => { key = $('#key').value.trim(); ls.set('bc-admin-key', key); showBoard(); };
   $('#key').onkeydown = (e) => { if (e.key === 'Enter') $('#login-btn').click(); };
   $('#end-btn').onclick = async () => {
-    if (params.get('demo')) return location.href = 'admin.html';
+    if (params.get('demo')) return location.href = 'admin/';
     if (!confirm('Завершить игру? Команды выйдут из своих комнат, прогресс и коды сбросятся. Логи диалогов сохранятся.')) return;
-    try { await call('/api/admin/end', 'POST'); clearTimeout(pollTimer); location.href = 'admin.html'; }
+    try { await call('/api/admin/end', 'POST'); clearTimeout(pollTimer); location.href = 'admin/'; }
     catch (e) { alert(e.message); }
   };
 

@@ -61,8 +61,14 @@ const isAdmin = (req, url) => {
 function serveStatic(url, res) {
   let p = decodeURIComponent(url.pathname);
   if (p.endsWith('/')) p += 'index.html';
-  const file = path.join(STATIC, path.normalize(p));
-  if (!file.startsWith(STATIC) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return send(res, 404, { error: 'not_found' });
+  let file = path.join(STATIC, path.normalize(p));
+  if (!file.startsWith(STATIC)) return send(res, 404, { error: 'not_found' });
+  // /admin → /admin/ (как делает GitHub Pages), иначе ломаются относительные пути
+  if (!path.extname(file) && fs.existsSync(path.join(file, 'index.html'))) {
+    res.writeHead(301, { Location: url.pathname + '/' + url.search });
+    return res.end();
+  }
+  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return send(res, 404, { error: 'not_found' });
   res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
   fs.createReadStream(file).pipe(res);
 }

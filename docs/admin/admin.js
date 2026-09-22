@@ -41,7 +41,7 @@
     try {
       const r = await api('/api/admin/game');
       game = r.game;
-      if (game?.phase === 'running') return location.replace('board.html'); // игра уже идёт → дашборд
+      if (game?.phase === 'running') return location.replace('../board.html'); // игра уже идёт → дашборд
       if (game?.phase === 'lobby') { renderCodes(); show('s-codes'); startPoll(); return; }
     } catch {}
     show('s-splash');
@@ -104,7 +104,7 @@
       [...box.children].forEach((card, i) => { if (teams[i]) card.style.setProperty('--accent', teams[i].accent); });
     }).catch(() => {});
     if (!$('#qr').children.length) {
-      fetch('img/qr.svg').then((r) => r.text()).then((svg) => { $('#qr').innerHTML = svg; }).catch(() => {
+      fetch('../img/qr.svg').then((r) => r.text()).then((svg) => { $('#qr').innerHTML = svg; }).catch(() => {
         $('#qr').textContent = 'studstil.ru';
       });
     }
@@ -141,7 +141,7 @@
   $('#start-btn').onclick = async () => {
     if ($('#start-btn').disabled) return;
     $('#start-btn').disabled = true;
-    try { await api('/api/admin/start', 'POST'); clearInterval(poll); location.href = 'board.html'; }
+    try { await api('/api/admin/start', 'POST'); clearInterval(poll); location.href = '../board.html'; }
     catch (e) { $('#start-btn').disabled = false; alert(e.message); }
   };
 
