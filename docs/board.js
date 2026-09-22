@@ -86,8 +86,15 @@
 
   $('#login-btn').onclick = () => { key = $('#key').value.trim(); ls.set('bc-admin-key', key); showBoard(); };
   $('#key').onkeydown = (e) => { if (e.key === 'Enter') $('#login-btn').click(); };
+  $('#end-btn').onclick = async () => {
+    if (params.get('demo')) return location.href = 'admin.html';
+    if (!confirm('Завершить игру? Команды выйдут из своих комнат, прогресс и коды сбросятся. Логи диалогов сохранятся.')) return;
+    try { await call('/api/admin/end', 'POST'); clearTimeout(pollTimer); location.href = 'admin.html'; }
+    catch (e) { alert(e.message); }
+  };
+
   $('#reset-btn').onclick = async () => {
-    if (!confirm('Сбросить все сессии? Команды начнут заново с ввода кода. Логи сохранятся.')) return;
+    if (!confirm('Сбросить прогресс команд? Коды останутся прежними, диалоги начнутся заново.')) return;
     try { const r = await call('/api/admin/reset', 'POST'); alert('Сброшено сессий: ' + r.reset); poll(); } catch (e) { alert(e.message); }
   };
 
