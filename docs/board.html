@@ -20,29 +20,47 @@
   .timer b { color: var(--neon); font-family: Unbounded, sans-serif; font-size: clamp(22px, 2.4vw, 44px); }
   .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(14px, 1.6vw, 28px); }
   @media (max-aspect-ratio: 3/4) { .grid { grid-template-columns: 1fr; grid-auto-rows: 1fr; overflow-y: auto; } }
-  .team { --accent: #FF7A1A; position: relative; overflow: hidden; padding: clamp(18px, 2.2vw, 40px); border-radius: clamp(20px, 2vw, 34px);
-    display: flex; flex-direction: column; gap: clamp(10px, 1.6vh, 26px); justify-content: space-between; min-height: 0; }
-  .team::before { content: ''; position: absolute; top: -12%; right: -8%; width: 40%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); opacity: .28; filter: blur(40px); }
-  .team .avatar { width: clamp(52px, 5vw, 104px); height: clamp(52px, 5vw, 104px); font-size: clamp(20px, 2vw, 40px); }
-  .team .display { font-size: clamp(19px, 1.9vw, 38px) !important; }
-  .team .dim { font-size: clamp(13px, 1vw, 20px); }
-  .big { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(56px, 9vw, 168px); line-height: .85; letter-spacing: -0.05em; color: var(--accent); }
-  .score-note { font-size: clamp(15px, 1.4vw, 28px); font-weight: 700; color: var(--dim); }
-  .track { height: clamp(10px, 1.1vh, 20px) !important; }
-  .tag { padding: clamp(6px, .8vh, 12px) clamp(10px, 1vw, 18px); border-radius: 999px; font-size: clamp(12px, 1.05vw, 21px); font-weight: 700; background: var(--chip); color: var(--dim); border: 1px solid var(--stroke); }
-  .tag.on { background: var(--accent); color: #140A02; }
+  .team { --accent: #FF7A1A; position: relative; overflow: hidden; padding: clamp(16px, 1.8vw, 34px); border-radius: clamp(20px, 2vw, 34px);
+    display: flex; flex-direction: column; gap: clamp(10px, 1.4vh, 22px); min-height: 0; }
+  .team::before { content: ''; position: absolute; top: -12%; right: -8%; width: 40%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); opacity: .26; filter: blur(40px); }
+  .team .avatar { width: clamp(46px, 4.2vw, 88px); height: clamp(46px, 4.2vw, 88px); font-size: clamp(18px, 1.7vw, 34px); }
+  .team .display { font-size: clamp(18px, 1.8vw, 36px) !important; }
+  .team .dim { font-size: clamp(12px, .95vw, 19px); }
+
+  .team-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 52%) 1fr; align-items: center; gap: clamp(10px, 1.2vw, 24px); }
+  .vessel { height: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; color: var(--accent); }
+  .flacon { width: 100%; height: 100%; }
+  .team-right { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: clamp(2px, .4vh, 8px); }
+  .score { display: flex; align-items: baseline; gap: 6px; line-height: .82; }
+  .big { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(48px, 7vw, 132px); line-height: .82; letter-spacing: -0.05em; color: var(--accent); }
+  .score-note { font-family: Unbounded, sans-serif; font-size: clamp(18px, 1.8vw, 36px); font-weight: 600; color: var(--dim); }
+  .score-cap { font-size: clamp(10px, .8vw, 15px); line-height: 1.3; letter-spacing: .16em; text-transform: uppercase; font-weight: 800; color: var(--dim); }
+  .tags { flex: none; display: flex; gap: clamp(5px, .5vw, 10px); flex-wrap: wrap; }
+  .tag { padding: clamp(5px, .7vh, 11px) clamp(9px, .9vw, 16px); border-radius: 999px; font-size: clamp(11px, .95vw, 19px); font-weight: 700; background: var(--chip); color: var(--dim); border: 1px solid var(--stroke); }
+  .tag.on { background: var(--accent); color: #140A02; border-color: transparent; }
+  .status { font-size: clamp(12px, 1vw, 20px); font-weight: 600; color: var(--dim); }
+
+  /* Жидкость во флаконе */
+  .liquid { transform: translateY(var(--y, 188px)); transition: transform 1.1s cubic-bezier(.34,1.2,.64,1); }
+  .wave { animation: waveMove 5s linear infinite; }
+  .w2 { animation-duration: 7.5s; animation-direction: reverse; }
+  @keyframes waveMove { from { transform: translateX(0); } to { transform: translateX(-120px); } }
+  .bub { animation: bubUp 4.5s ease-in infinite; }
+  .b1 { animation-duration: 6s; animation-delay: -2s; } .b2 { animation-duration: 5.2s; animation-delay: -3.4s; }
+  @keyframes bubUp { 0% { transform: translateY(150px); opacity: 0; } 15% { opacity: .5; } 85% { opacity: .35; } 100% { transform: translateY(14px); opacity: 0; } }
+  .flacon.full { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--accent) 60%, transparent)); }
+
   .ic { width: 1.15em; height: 1.15em; vertical-align: -.2em; margin-right: .35em; }
   .status.ok { color: var(--accent); display: inline-flex; align-items: center; gap: .4em; }
-  .status { font-size: clamp(13px, 1.1vw, 22px); font-weight: 600; color: var(--dim); }
+  .tools { flex: none; display: flex; gap: 10px; align-items: center; font-size: clamp(11px, .9vw, 16px); }
   .pill.danger { border-color: color-mix(in srgb, var(--err) 55%, transparent); color: var(--err); }
   .pill.danger:hover { background: color-mix(in srgb, var(--err) 14%, transparent); }
-  .tools { flex: none; display: flex; gap: 10px; align-items: center; font-size: clamp(11px, .9vw, 16px); }
   .team.enter { animation: riseIn .6s var(--ease-out) both; animation-delay: calc(var(--i) * 90ms); }
   .team.bump { animation: bump .9s var(--ease-out); }
   @keyframes bump { 0% { box-shadow: 0 0 0 0 var(--accent); } 30% { box-shadow: 0 0 0 4px var(--accent), 0 0 60px color-mix(in srgb, var(--accent) 60%, transparent); transform: translateY(-6px); } 100% { box-shadow: 0 0 0 0 transparent; transform: none; } }
   .team.win { box-shadow: 0 0 0 2px var(--accent), 0 20px 60px color-mix(in srgb, var(--accent) 35%, transparent); }
   .tag.pop { animation: stampIn .55s var(--ease-spring) both; }
-  .fill { transition: transform .9s var(--ease-out) !important; }
+  @media (prefers-reduced-motion: reduce) { .wave, .bub { animation: none !important; } .liquid { transition: none; } }
   .login { max-width: 420px; margin: 12vh auto; display: flex; flex-direction: column; gap: 12px; }
   .login input { padding: 16px 18px; border-radius: 18px; color: var(--ink); font-size: 16px; font-family: inherit; }
 </style>

@@ -23,6 +23,53 @@
     return data;
   }
 
+
+  // --- Флакон: сосуд наполняется цветом команды, одно деление = один факт ---
+  function flacon(t) {
+    const TOP = 52, BOT = 188;                       // границы жидкости внутри флакона
+    const k = Math.max(0, Math.min(1, t.done / t.total));
+    const y = BOT - (BOT - TOP) * k;
+    const uid = 'f-' + t.id;
+    const marks = Array.from({ length: t.total - 1 }, (_, i) => {
+      const my = BOT - (BOT - TOP) * ((i + 1) / t.total);
+      return `<line x1="26" y1="${my}" x2="40" y2="${my}" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".35"/>`;
+    }).join('');
+    const bubbles = [0, 1, 2].map((i) => `<circle class="bub b${i}" cx="${46 + i * 14}" cy="0" r="${3 - i * .6}" fill="#fff" opacity=".45"/>`).join('');
+    return `
+<svg class="flacon${t.done === t.total ? ' full' : ''}" viewBox="0 0 120 210" aria-label="Раскрыто ${t.done} из ${t.total}">
+  <defs>
+    <clipPath id="${uid}-body"><path d="M22 66c0-9 6-13 13-16l6-3v-9h38v9l6 3c7 3 13 7 13 16v112c0 9-7 16-16 16H38c-9 0-16-7-16-16z"/></clipPath>
+    <linearGradient id="${uid}-liq" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="currentColor" stop-opacity=".95"/>
+      <stop offset="1" stop-color="currentColor" stop-opacity=".62"/>
+    </linearGradient>
+    <linearGradient id="${uid}-glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".16"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity=".03"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".12"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="44" y="6" width="32" height="18" rx="6" fill="currentColor" opacity=".85"/>
+  <rect x="50" y="22" width="20" height="12" rx="3" fill="currentColor" opacity=".45"/>
+
+  <g clip-path="url(#${uid}-body)">
+    <rect x="0" y="0" width="120" height="210" fill="url(#${uid}-glass)"/>
+    <g class="liquid" style="--y:${y}px">
+      <rect x="0" y="0" width="240" height="210" fill="url(#${uid}-liq)" transform="translate(0 6)"/>
+      <path class="wave w1" d="M0 6c15 0 15-8 30-8s15 8 30 8 15-8 30-8 15 8 30 8 15-8 30-8 15 8 30 8 15-8 30-8 15 8 30 8v210H0z" fill="url(#${uid}-liq)"/>
+      <path class="wave w2" d="M0 6c15 0 15-7 30-7s15 7 30 7 15-7 30-7 15 7 30 7 15-7 30-7 15 7 30 7 15-7 30-7 15 7 30 7v210H0z" fill="currentColor" opacity=".35"/>
+      <g class="bubbles">${bubbles}</g>
+    </g>
+  </g>
+
+  <path d="M22 66c0-9 6-13 13-16l6-3v-9h38v9l6 3c7 3 13 7 13 16v112c0 9-7 16-16 16H38c-9 0-16-7-16-16z"
+        fill="none" stroke="currentColor" stroke-width="2.5" opacity=".75"/>
+  <path d="M34 78c0-6 4-10 9-12" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".28"/>
+  ${marks}
+</svg>`;
+  }
+
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
   function render(teams) {
@@ -41,22 +88,27 @@
       const tn = el('div', 'display', t.team); tn.style.cssText = 'font-weight:600;font-size:20px';
       who.append(tn, el('div', 'dim', `${t.name}, ${t.age} · код ${t.code}`));
       head.append(av, who);
-      const score = el('div'); score.style.cssText = 'display:flex;align-items:baseline;gap:8px';
+      const body = el('div', 'team-body');
+      const vessel = el('div', 'vessel');
+      vessel.innerHTML = flacon(t);
+      const right = el('div', 'team-right');
+      const score = el('div', 'score');
       const big = el('span', 'big', was ? was.done : 0);
-      score.append(big, el('span', 'score-note', `/ ${t.total} факта`));
+      score.append(big, el('span', 'score-note', `/ ${t.total}`));
+      const cap = el('div', 'score-cap', 'фактов раскрыто');
       countUp(big, was ? was.done : 0, t.done);
-      const track = el('div', 'track'); track.style.height = '12px';
-      const fill = el('div', 'fill'); fill.style.transform = `scaleX(${t.done / t.total})`; fill.style.width = '100%'; fill.style.transformOrigin = 'left'; track.append(fill);
-      const tags = el('div'); tags.style.cssText = 'display:flex;gap:clamp(6px,.6vw,12px);flex-wrap:wrap';
+      const tags = el('div', 'tags');
       t.tags.forEach((g, j) => {
         const isNew = g.on && was && !was.tags[j];
         tags.append(el('span', 'tag' + (g.on ? ' on' : '') + (isNew ? ' pop' : ''), g.on ? g.label : '• • •')); // закрытые не подсказываем
       });
       for (const x of t.extra) tags.append(el('span', 'tag', '+ ' + x));
+      right.append(score, cap);
+      body.append(vessel, right);
       const st = el('div', 'status' + (t.finished ? ' ok' : ''));
       if (t.finished) { st.innerHTML = ICON.done + '<span></span>'; st.querySelector('span').textContent = 'Проблема сформулирована'; }
       else st.textContent = t.sessions ? `Идёт консультация · устройств: ${t.sessions}` : 'Ждём команду…';
-      card.append(head, score, track, tags, st);
+      card.append(head, body, tags, st);
       grid.append(card);
       prev.set(t.id, { done: t.done, tags: t.tags.map((g) => g.on) });
     }
