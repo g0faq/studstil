@@ -27,8 +27,8 @@
       const card = el('div', 'team glass' + (t.finished ? ' win' : '') + (gained ? ' bump' : '') + (firstPaint ? ' enter' : ''));
       card.style.setProperty('--i', grid.children.length);
       card.style.setProperty('--accent', (document.documentElement.dataset.palette === 'green' && t.accent_green) || t.accent);
-      const head = el('div'); head.style.cssText = 'display:flex;align-items:center;gap:14px;position:relative';
-      const av = el('div', 'avatar', t.letter); av.style.cssText = 'width:60px;height:60px;font-size:24px';
+      const head = el('div'); head.style.cssText = 'display:flex;align-items:center;gap:clamp(10px,1vw,20px);position:relative';
+      const av = el('div', 'avatar', t.letter); 
       const photo = (document.documentElement.dataset.palette === 'green' && t.photo_green) || t.photo;
       if (photo) { const img = new Image(); img.alt = ''; img.onerror = () => img.remove(); img.src = photo; av.append(img); }
       const who = el('div'); who.style.cssText = 'display:flex;flex-direction:column;gap:2px';
@@ -37,25 +37,24 @@
       head.append(av, who);
       const score = el('div'); score.style.cssText = 'display:flex;align-items:baseline;gap:8px';
       const big = el('span', 'big', was ? was.done : 0);
-      score.append(big, el('span', 'dim', `/ ${t.total} факта`));
+      score.append(big, el('span', 'score-note', `/ ${t.total} факта`));
       countUp(big, was ? was.done : 0, t.done);
-      score.lastChild.style.cssText = 'font-size:20px;font-weight:700';
       const track = el('div', 'track'); track.style.height = '12px';
       const fill = el('div', 'fill'); fill.style.transform = `scaleX(${t.done / t.total})`; fill.style.width = '100%'; fill.style.transformOrigin = 'left'; track.append(fill);
-      const tags = el('div'); tags.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+      const tags = el('div'); tags.style.cssText = 'display:flex;gap:clamp(6px,.6vw,12px);flex-wrap:wrap';
       t.tags.forEach((g, j) => {
         const isNew = g.on && was && !was.tags[j];
         tags.append(el('span', 'tag' + (g.on ? ' on' : '') + (isNew ? ' pop' : ''), g.on ? g.label : '• • •')); // закрытые не подсказываем
       });
       for (const x of t.extra) tags.append(el('span', 'tag', '+ ' + x));
       const status = t.finished ? '✅ Проблема сформулирована' : t.sessions ? `Идёт консультация · устройств: ${t.sessions}` : 'Ждём команду…';
-      const st = el('div', 'dim', status); st.style.cssText = 'font-size:15px;font-weight:600';
+      const st = el('div', 'status', status);
       card.append(head, score, track, tags, st);
       grid.append(card);
       prev.set(t.id, { done: t.done, tags: t.tags.map((g) => g.on) });
     }
     firstPaint = false;
-    $('#updated').textContent = 'Обновлено ' + new Date().toLocaleTimeString('ru-RU');
+    $('#updated').textContent = (params.get('demo') ? 'Демонстрация · ' : 'Обновлено ') + new Date().toLocaleTimeString('ru-RU');
   }
 
   function countUp(node, from, to) {
@@ -96,5 +95,38 @@
   $('#timer').ondblclick = () => { clearInterval(tick); tick = null; left = total; paint(); };
   paint();
 
-  key ? showBoard() : showLogin();
+  // --- Демо-режим: ?demo=1 — прогресс идёт сам, без учеников и без ключа ---
+  const DEMO = [
+    { id: 'olga', name: 'Ольга', age: 38, letter: 'О', team: 'Команда 1', code: '101', accent: '#FF7A1A', accent_green: '#3DDC84', photo: 'img/olga.svg', photo_green: 'img/olga-green.svg', total: 4,
+      labels: ['Повод', 'Стиль сейчас', 'Время на сборы', 'Страх'], extraLabels: ['Успешный образ'] },
+    { id: 'marina', name: 'Марина', age: 52, letter: 'М', team: 'Команда 2', code: '202', accent: '#F4C95D', accent_green: '#9FE870', photo: 'img/marina.svg', photo_green: 'img/marina-green.svg', total: 4,
+      labels: ['Прошлый образ', 'Страх', 'Не молодиться', 'Образ с характером'], extraLabels: [] },
+    { id: 'alina', name: 'Алина', age: 24, letter: 'А', team: 'Команда 3', code: '303', accent: '#FF5A5F', accent_green: '#FF5A5F', photo: 'img/alina.svg', photo_green: 'img/alina-green.svg', total: 4,
+      labels: ['Цель', 'Время на сборы', 'Цвет волос', 'Чувство'], extraLabels: ['Референсы'] },
+  ];
+  let demoDone = [1, 0, 2];
+
+  function demoTeams() {
+    return DEMO.map((d, i) => ({
+      ...d, done: demoDone[i], sessions: [2, 3, 2][i], finished: demoDone[i] === d.total,
+      tags: d.labels.map((label, j) => ({ label, on: j < demoDone[i] })),
+      extra: demoDone[i] === d.total ? d.extraLabels : [],
+    }));
+  }
+
+  function runDemo() {
+    $('#login').classList.add('hidden'); $('#board').classList.remove('hidden');
+    $('#reset-btn').textContent = 'Демо-режим: сбросить прогресс';
+    $('#reset-btn').onclick = () => { demoDone = [0, 0, 0]; render(demoTeams()); };
+    render(demoTeams());
+    setInterval(() => {
+      const i = Math.floor(Math.random() * 3);
+      if (demoDone[i] < DEMO[i].total && Math.random() > 0.35) demoDone[i]++;
+      if (demoDone.every((d, k) => d === DEMO[k].total)) demoDone = [0, 1, 0];
+      render(demoTeams());
+    }, 4000);
+  }
+
+  if (params.get('demo')) runDemo();
+  else key ? showBoard() : showLogin();
 })();

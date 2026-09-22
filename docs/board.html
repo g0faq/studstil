@@ -11,27 +11,34 @@
 <link rel="stylesheet" href="styles.css">
 <script>try{var q=new URLSearchParams(location.search).get("palette");if(q)localStorage.setItem("bc-palette",q==="orange"?"":q);var p=localStorage.getItem("bc-palette");if(p)document.documentElement.dataset.palette=p}catch(e){}</script>
 <style>
-  body { padding: 28px 20px 60px; }
-  .wrap { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
-  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
-  h1 { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(28px, 4vw, 48px); line-height: 1; letter-spacing: -0.035em; margin: 0; }
-  .timer { font-size: 18px; font-weight: 700; color: var(--dim); background: none; border: none; }
-  .timer b { color: var(--neon); font-family: Unbounded, sans-serif; font-size: 26px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
-  .team { --accent: #FF7A1A; position: relative; overflow: hidden; padding: 28px; border-radius: 28px; display: flex; flex-direction: column; gap: 18px; }
-  .team::before { content: ''; position: absolute; top: -60px; right: -40px; width: 170px; height: 170px; border-radius: 50%; background: var(--accent); opacity: .28; filter: blur(30px); }
-  .team.win { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
-  .big { font-family: Unbounded, sans-serif; font-weight: 800; font-size: 64px; line-height: 1; letter-spacing: -0.04em; color: var(--accent); }
-  .tag { padding: 7px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; background: var(--chip); color: var(--dim); border: 1px solid var(--stroke); }
-  .tag.on { background: var(--accent); color: #1a1024; }
-  .tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  html, body { height: 100%; }
+  body { padding: 0; overflow: hidden; }
+  .wrap { height: 100dvh; max-width: none; margin: 0; padding: clamp(20px, 3vh, 46px) clamp(20px, 3vw, 64px); display: flex; flex-direction: column; gap: clamp(16px, 2.5vh, 34px); }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; flex: none; }
+  h1 { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(30px, 4.2vw, 68px); line-height: 1; letter-spacing: -0.035em; margin: 0; }
+  .timer { font-size: clamp(14px, 1.2vw, 22px); font-weight: 700; color: var(--dim); background: none; border: none; white-space: nowrap; }
+  .timer b { color: var(--neon); font-family: Unbounded, sans-serif; font-size: clamp(22px, 2.4vw, 44px); }
+  .grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(14px, 1.6vw, 28px); }
+  @media (max-aspect-ratio: 3/4) { .grid { grid-template-columns: 1fr; grid-auto-rows: 1fr; overflow-y: auto; } }
+  .team { --accent: #FF7A1A; position: relative; overflow: hidden; padding: clamp(18px, 2.2vw, 40px); border-radius: clamp(20px, 2vw, 34px);
+    display: flex; flex-direction: column; gap: clamp(10px, 1.6vh, 26px); justify-content: space-between; min-height: 0; }
+  .team::before { content: ''; position: absolute; top: -12%; right: -8%; width: 40%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); opacity: .28; filter: blur(40px); }
+  .team .avatar { width: clamp(52px, 5vw, 104px); height: clamp(52px, 5vw, 104px); font-size: clamp(20px, 2vw, 40px); }
+  .team .display { font-size: clamp(19px, 1.9vw, 38px) !important; }
+  .team .dim { font-size: clamp(13px, 1vw, 20px); }
+  .big { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(56px, 9vw, 168px); line-height: .85; letter-spacing: -0.05em; color: var(--accent); }
+  .score-note { font-size: clamp(15px, 1.4vw, 28px); font-weight: 700; color: var(--dim); }
+  .track { height: clamp(10px, 1.1vh, 20px) !important; }
+  .tag { padding: clamp(6px, .8vh, 12px) clamp(10px, 1vw, 18px); border-radius: 999px; font-size: clamp(12px, 1.05vw, 21px); font-weight: 700; background: var(--chip); color: var(--dim); border: 1px solid var(--stroke); }
+  .tag.on { background: var(--accent); color: #140A02; }
+  .status { font-size: clamp(13px, 1.1vw, 22px); font-weight: 600; color: var(--dim); }
+  .tools { flex: none; display: flex; gap: 10px; align-items: center; font-size: clamp(11px, .9vw, 16px); }
   .team.enter { animation: riseIn .6s var(--ease-out) both; animation-delay: calc(var(--i) * 90ms); }
   .team.bump { animation: bump .9s var(--ease-out); }
-  @keyframes bump { 0% { box-shadow: 0 0 0 0 var(--accent); } 30% { box-shadow: 0 0 0 4px var(--accent), 0 0 60px color-mix(in srgb, var(--accent) 60%, transparent); transform: translateY(-4px); } 100% { box-shadow: 0 0 0 0 transparent; transform: none; } }
+  @keyframes bump { 0% { box-shadow: 0 0 0 0 var(--accent); } 30% { box-shadow: 0 0 0 4px var(--accent), 0 0 60px color-mix(in srgb, var(--accent) 60%, transparent); transform: translateY(-6px); } 100% { box-shadow: 0 0 0 0 transparent; transform: none; } }
   .team.win { box-shadow: 0 0 0 2px var(--accent), 0 20px 60px color-mix(in srgb, var(--accent) 35%, transparent); }
   .tag.pop { animation: stampIn .55s var(--ease-spring) both; }
   .fill { transition: transform .9s var(--ease-out) !important; }
-  h1 .ch { display: inline-block; }
   .login { max-width: 420px; margin: 12vh auto; display: flex; flex-direction: column; gap: 12px; }
   .login input { padding: 16px 18px; border-radius: 18px; color: var(--ink); font-size: 16px; font-family: inherit; }
 </style>
@@ -52,7 +59,7 @@
   </div>
   <div class="grid" id="grid"></div>
   <div class="tools">
-    <span class="dim" style="font-size:13px" id="updated"></span>
+    <span class="dim" id="updated"></span>
     <span style="flex:1"></span>
     <button class="pill" id="reset-btn" type="button">Сбросить все сессии</button>
   </div>
