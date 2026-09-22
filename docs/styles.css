@@ -41,7 +41,7 @@ button:disabled { opacity: .5; cursor: default; }
 .hidden { display: none !important; }
 
 .btn-main { flex: none; width: 100%; padding: 20px; border: none; border-radius: 24px; color: #fff; font-family: Unbounded, sans-serif; font-size: 17px; font-weight: 600; box-shadow: 0 16px 40px rgba(0,0,0,0.28); }
-.btn-grad { background: linear-gradient(100deg,var(--g1),var(--g2),var(--g1)); background-size: 200% 100%; animation: bcShine 6s linear infinite alternate; box-shadow: 0 16px 40px var(--glow1s); color: #140A02; }
+.btn-grad { background: linear-gradient(100deg,var(--g1),var(--g2),var(--g1)); box-shadow: 0 16px 40px var(--glow1s); color: #140A02; }
 .btn-accent { background: var(--accent); }
 .icon-btn { border: none; background: var(--chip); width: 40px; height: 40px; border-radius: 14px; font-size: 17px; flex: none; }
 .pill { border: 1px solid var(--stroke); background: var(--chip); padding: 9px 13px; border-radius: 14px; font-size: 12px; font-weight: 700; }
@@ -52,7 +52,7 @@ button:disabled { opacity: .5; cursor: default; }
 #start { padding: 20px 26px 30px; }
 .start-top { display: flex; justify-content: flex-end; }
 .start-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 22px; }
-.logo { width: 96px; height: 96px; border-radius: 32px; background: linear-gradient(140deg,var(--g1),var(--g2) 55%,var(--g3)); display: flex; align-items: center; justify-content: center; animation: bcFloat 5s ease-in-out infinite; box-shadow: 0 20px 50px var(--glow1s); font-family: Unbounded, sans-serif; font-weight: 800; font-size: 40px; color: #fff; }
+.logo { width: 96px; height: 96px; border-radius: 32px; background: linear-gradient(140deg,var(--g1),var(--g2) 55%,var(--g3)); display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 50px var(--glow1s); font-family: Unbounded, sans-serif; font-weight: 800; font-size: 40px; color: #fff; }
 .title { font-family: Unbounded, sans-serif; font-weight: 800; font-size: 46px; line-height: .95; letter-spacing: -0.035em; margin: 0; }
 .lead { font-size: 17px; line-height: 1.45; color: var(--dim); max-width: 300px; margin: 0; }
 .code-input { width: 100%; padding: 19px 22px; border-radius: 22px; color: var(--ink); font-family: Unbounded, sans-serif; font-size: 22px; font-weight: 600; letter-spacing: 0.12em; outline: none; }
@@ -110,3 +110,96 @@ button:disabled { opacity: .5; cursor: default; }
 
 .avatar { position: relative; overflow: hidden; }
 .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* ================= Motion layer ================= */
+:root { --ease-out: cubic-bezier(.22,1,.36,1); --ease-spring: cubic-bezier(.34,1.56,.64,1); }
+@property --a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+
+/* Фон: медленные «пятна света», как софтбоксы в студии, + плёночное зерно */
+.blobs { position: absolute; inset: -20%; pointer-events: none; filter: blur(60px); opacity: .55; }
+.blobs i { position: absolute; width: 55%; aspect-ratio: 1; border-radius: 50%; background: var(--accent-soft); animation: drift 22s var(--ease-out) infinite alternate; }
+.blobs i:nth-child(1) { top: 0; left: -5%; background: var(--glow1); }
+.blobs i:nth-child(2) { bottom: 5%; right: -10%; animation-duration: 28s; animation-delay: -6s; }
+.blobs i:nth-child(3) { top: 40%; left: 30%; width: 35%; background: var(--glow1s); animation-duration: 34s; animation-delay: -12s; }
+@keyframes drift { 0% { transform: translate(0,0) scale(1); } 50% { transform: translate(12%,8%) scale(1.15); } 100% { transform: translate(-8%,14%) scale(.92); } }
+.grain { position: absolute; inset: 0; pointer-events: none; opacity: .07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+[data-theme="light"] .grain { opacity: .05; mix-blend-mode: multiply; }
+
+/* Смена экранов */
+.screen { animation: screenIn .5s var(--ease-out) both; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(12px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+
+/* Старт: мазки косметики прорисовываются один за другим */
+.swatches { width: 100%; max-width: 300px; height: auto; overflow: visible; }
+.sw { fill: none; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: stroke 1s var(--ease-out) forwards; }
+.sw1 { stroke: var(--g1); stroke-width: 26; animation-delay: .15s; }
+.sw2 { stroke: var(--g2); stroke-width: 20; animation-delay: .4s; opacity: .95; }
+.sw3 { stroke: var(--g3); stroke-width: 14; animation-delay: .62s; }
+@keyframes stroke { to { stroke-dashoffset: 0; } }
+.dot { opacity: 0; transform-box: fill-box; transform-origin: center; animation: dotIn .5s var(--ease-spring) forwards; }
+.d1 { fill: var(--g2); animation-delay: .85s; } .d2 { fill: var(--g1); animation-delay: .93s; } .d3 { fill: var(--g3); animation-delay: 1.01s; }
+@keyframes dotIn { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
+
+/* Заголовок: буквы поднимаются с размытием */
+.title .ch { display: inline-block; opacity: 0; transform: translateY(.35em); filter: blur(8px); animation: chIn .7s var(--ease-out) forwards; animation-delay: calc(.35s + var(--i) * 45ms); }
+@keyframes chIn { to { opacity: 1; transform: none; filter: none; } }
+.rise { opacity: 0; animation: riseIn .6s var(--ease-out) forwards; animation-delay: var(--d, 0s); }
+@keyframes riseIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* Поле кода: переливающаяся рамка при фокусе, «встряска» при ошибке */
+.code-field { position: relative; border-radius: 22px; padding: 1.5px; background: var(--stroke); transition: background .3s; }
+.code-field:focus-within { background: conic-gradient(from var(--a), var(--g1), var(--g2), var(--g3), var(--g1)); animation: spin 3s linear infinite; }
+@keyframes spin { to { --a: 360deg; } }
+.code-field .code-input { border: none; background: var(--bg2); display: block; }
+.code-field.shake { animation: shake .36s cubic-bezier(.36,.07,.19,.97); }
+@keyframes shake { 20%,60% { transform: translateX(-6px); } 40%,80% { transform: translateX(6px); } }
+
+/* Кнопки: отклик на нажатие */
+.btn-main, .send, .chip, .pill, .icon-btn, .ghost { transition: transform .16s var(--ease-out), filter .2s; }
+.btn-main:active, .send:active, .chip:active, .pill:active, .icon-btn:active, .ghost:active { transform: scale(.97); }
+@media (hover: hover) { .btn-main:hover { filter: brightness(1.06); } .chip:hover { color: var(--ink); } }
+
+/* Карточка: аватар раскрывается кругом, по орбите бежит искра */
+.orbit { position: absolute; top: 50%; left: 50%; width: 220px; height: 220px; margin: -110px 0 0 -110px; overflow: visible; animation: orbit 14s linear infinite; }
+.orbit circle:first-child { fill: none; stroke: var(--accent); stroke-width: 1; stroke-dasharray: 2 7; opacity: .6; }
+.orbit .spark { fill: var(--accent); filter: drop-shadow(0 0 6px var(--accent)); }
+@keyframes orbit { to { transform: rotate(360deg); } }
+#card:not(.hidden) .ring-wrap .avatar { animation: avatarIn .8s var(--ease-out) both .1s; }
+@keyframes avatarIn { from { clip-path: circle(0% at 50% 50%); transform: scale(.9); } to { clip-path: circle(50% at 50% 50%); transform: none; } }
+.quote-text .w { display: inline-block; opacity: 0; transform: translateY(6px); filter: blur(4px); animation: chIn .5s var(--ease-out) forwards; animation-delay: calc(.5s + var(--i) * 60ms); }
+
+/* Чат: сообщения входят с лёгким размытием */
+.msg { animation: msgIn .32s var(--ease-out) both; }
+@keyframes msgIn { from { opacity: 0; transform: translateY(8px) scale(.98); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+.msg.me { transform-origin: 100% 100%; } .msg.them { transform-origin: 0 100%; }
+.msgs .msg.old { animation: none; }
+
+/* Раскрытие факта — главный момент игры */
+.msg.them.reveal { position: relative; overflow: hidden; }
+.msg.them.reveal::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--accent) 45%, transparent) 50%, transparent 70%); transform: translateX(-100%); animation: sweep .9s var(--ease-out) .15s forwards; }
+@keyframes sweep { to { transform: translateX(100%); } }
+.stamp { align-self: center; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--accent); color: #140A02; font-size: 13px; font-weight: 800; letter-spacing: .02em; box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 45%, transparent); }
+.stamp.fresh { animation: stampIn .55s var(--ease-spring) both .25s; }
+@keyframes stampIn { from { opacity: 0; transform: scale(1.6) rotate(-8deg); filter: blur(4px); } to { opacity: 1; transform: rotate(-2deg); filter: none; } }
+.stamp:not(.fresh) { transform: rotate(-2deg); }
+.fill { position: relative; overflow: hidden; }
+.fill.glint::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.7), transparent); transform: translateX(-100%); animation: sweep .8s var(--ease-out) .35s forwards; }
+.particle { position: fixed; pointer-events: none; z-index: 50; border-radius: 50%; }
+
+/* Итог: галочка рисуется, досье и задания выезжают по очереди */
+.check { width: 78px; height: 78px; }
+.check::before { display: none; }
+.check svg { width: 78px; height: 78px; }
+.check circle { fill: var(--accent); transform-origin: center; animation: dotIn .5s var(--ease-spring) both; }
+.check path { fill: none; stroke: #140A02; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: stroke .45s var(--ease-out) .35s forwards; }
+#done:not(.hidden) .done-body > *, #done:not(.hidden) #done-facts > * { animation: riseIn .5s var(--ease-out) both; }
+#done:not(.hidden) .done-body > :nth-child(1) { animation-delay: .3s; } #done:not(.hidden) .done-body > :nth-child(2) { animation-delay: .5s; } #done:not(.hidden) .done-body > :nth-child(3) { animation-delay: .7s; }
+.confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .blobs i, .orbit, .code-field:focus-within { animation: none !important; }
+  .sw { stroke-dashoffset: 0; } .dot, .title .ch, .rise, .quote-text .w { opacity: 1; transform: none; filter: none; }
+  .check path { stroke-dashoffset: 0; }
+  .confetti, .particle { display: none; }
+}

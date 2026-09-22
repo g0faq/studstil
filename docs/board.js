@@ -6,6 +6,9 @@
   let key = params.get('key') || ls.get('bc-admin-key') || '';
   if (params.get('key')) { ls.set('bc-admin-key', key); history.replaceState(null, '', location.pathname + (params.get('min') ? '?min=' + params.get('min') : '')); } // не держим ключ в адресной строке
   let pollTimer;
+  const prev = new Map(); // id → { done, tags } с прошлого опроса
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let firstPaint = true;
 
   async function call(path, method = 'GET') {
     const res = await fetch(API + path, { method, headers: { 'X-Admin-Key': key } });
@@ -19,7 +22,10 @@
   function render(teams) {
     const grid = $('#grid'); grid.replaceChildren();
     for (const t of teams) {
-      const card = el('div', 'team glass' + (t.finished ? ' win' : ''));
+      const was = prev.get(t.id);
+      const gained = was && t.done > was.done;
+      const card = el('div', 'team glass' + (t.finished ? ' win' : '') + (gained ? ' bump' : '') + (firstPaint ? ' enter' : ''));
+      card.style.setProperty('--i', grid.children.length);
       card.style.setProperty('--accent', (document.documentElement.dataset.palette === 'green' && t.accent_green) || t.accent);
       const head = el('div'); head.style.cssText = 'display:flex;align-items:center;gap:14px;position:relative';
       const av = el('div', 'avatar', t.letter); av.style.cssText = 'width:60px;height:60px;font-size:24px';
@@ -30,19 +36,36 @@
       who.append(tn, el('div', 'dim', `${t.name}, ${t.age} · код ${t.code}`));
       head.append(av, who);
       const score = el('div'); score.style.cssText = 'display:flex;align-items:baseline;gap:8px';
-      score.append(el('span', 'big', t.done), el('span', 'dim', `/ ${t.total} факта`));
+      const big = el('span', 'big', was ? was.done : 0);
+      score.append(big, el('span', 'dim', `/ ${t.total} факта`));
+      countUp(big, was ? was.done : 0, t.done);
       score.lastChild.style.cssText = 'font-size:20px;font-weight:700';
       const track = el('div', 'track'); track.style.height = '12px';
-      const fill = el('div', 'fill'); fill.style.width = (t.done / t.total * 100) + '%'; track.append(fill);
+      const fill = el('div', 'fill'); fill.style.transform = `scaleX(${t.done / t.total})`; fill.style.width = '100%'; fill.style.transformOrigin = 'left'; track.append(fill);
       const tags = el('div'); tags.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
-      for (const g of t.tags) tags.append(el('span', 'tag' + (g.on ? ' on' : ''), g.on ? g.label : '• • •')); // закрытые не подсказываем
+      t.tags.forEach((g, j) => {
+        const isNew = g.on && was && !was.tags[j];
+        tags.append(el('span', 'tag' + (g.on ? ' on' : '') + (isNew ? ' pop' : ''), g.on ? g.label : '• • •')); // закрытые не подсказываем
+      });
       for (const x of t.extra) tags.append(el('span', 'tag', '+ ' + x));
       const status = t.finished ? '✅ Проблема сформулирована' : t.sessions ? `Идёт консультация · устройств: ${t.sessions}` : 'Ждём команду…';
       const st = el('div', 'dim', status); st.style.cssText = 'font-size:15px;font-weight:600';
       card.append(head, score, track, tags, st);
       grid.append(card);
+      prev.set(t.id, { done: t.done, tags: t.tags.map((g) => g.on) });
     }
+    firstPaint = false;
     $('#updated').textContent = 'Обновлено ' + new Date().toLocaleTimeString('ru-RU');
+  }
+
+  function countUp(node, from, to) {
+    if (reduced || from === to) { node.textContent = to; return; }
+    const t0 = performance.now(), dur = 700;
+    (function f(t) {
+      const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      node.textContent = Math.round(from + (to - from) * e);
+      if (k < 1) requestAnimationFrame(f);
+    })(t0);
   }
 
   async function poll() {

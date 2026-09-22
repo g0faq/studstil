@@ -11,6 +11,9 @@
   let state = null;
   let busy = false;
   let idleTimer = null;
+  let shown = 0; // сколько сообщений уже анимировано (остальные не переигрываем)
+  let fresh = new Set(); // индексы только что раскрывших факт ответов
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const hits = new Set(); // индексы сообщений, раскрывших факт (для обводки)
   const extra = []; // системные строки в ленте: { after: индекс сообщения, text, err }
 
@@ -20,6 +23,12 @@
     if (!res.ok) throw Object.assign(new Error(data.error || 'Нет связи с сервером'), { status: res.status, code: data.code });
     return data;
   }
+
+  // --- Заголовок по буквам ---
+  (() => {
+    const t = $('#title'); let i = 0;
+    t.innerHTML = t.innerHTML.split('<br>').map((w) => [...w].map((c) => `<span class="ch" aria-hidden="true" style="--i:${i++}">${c}</span>`).join('')).join('<br>');
+  })();
 
   // --- Тема ---
   const themeBtn = $('#theme-btn');
@@ -47,9 +56,12 @@
     try {
       const r = await api('/api/session', { code });
       sessionId = r.sessionId; store.set('bc-session', sessionId);
-      hits.clear(); extra.length = 0;
+      hits.clear(); extra.length = 0; shown = 0;
       apply(r.state); go('card');
-    } catch (err) { $('#code-err').textContent = err.message; }
+    } catch (err) {
+      $('#code-err').textContent = err.message;
+      const f = $('.code-field'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
+    }
     finally { $('#enter-btn').disabled = false; }
   };
   $('#code').oninput = () => { $('#code-err').textContent = ''; };
@@ -63,6 +75,8 @@
     app.style.setProperty('--accent', (green && c.accent_green) || c.accent);
     app.style.setProperty('--accent-soft', (green && c.soft_green) || c.soft);
     for (const el of document.querySelectorAll('[data-f]')) el.textContent = c[el.dataset.f] ?? '';
+    const q = $('#quote'); q.replaceChildren();
+    `«${c.card_hint}»`.split(' ').forEach((w, i) => { const sp = document.createElement('span'); sp.className = 'w'; sp.style.setProperty('--i', i); sp.textContent = w; q.append(sp, ' '); });
     const photo = (green && c.photo_green) || c.photo;
     for (const el of document.querySelectorAll('.avatar[data-f="letter"]')) { el.querySelector('img')?.remove(); if (photo) addPhoto(el, photo); }
     renderProgress(); renderMsgs(); renderChips();
@@ -103,9 +117,14 @@
   function renderMsgs(typing = false) {
     const box = $('#msgs'); box.replaceChildren();
     state.messages.forEach((m, i) => {
-      box.append(bubble(m.who + (hits.has(i) ? ' hit' : ''), m.text));
-      for (const x of extra.filter((x) => x.after === i)) box.append(bubble('sys' + (x.err ? ' err' : ''), x.text));
+      const old = i < shown ? ' old' : '';
+      box.append(bubble(m.who + (hits.has(i) ? ' hit' : '') + (fresh.has(i) ? ' reveal' : '') + old, m.text));
+      for (const x of extra.filter((x) => x.after === i)) {
+        if (x.stamp) { const st = document.createElement('div'); st.className = 'stamp' + (fresh.has(i) ? ' fresh' : ''); st.textContent = '🔓 ' + x.text; box.append(st); }
+        else box.append(bubble('sys' + (x.err ? ' err' : '') + old, x.text));
+      }
     });
+    shown = state.messages.length;
     if (state.finished && state.final) { box.append(bubble('them hit', state.final.message)); box.append(bubble('sys', '🎉 Вы выяснили запрос клиентки! Нажмите «Сформулировать проблему»')); }
     if (typing) { const t = document.createElement('div'); t.className = 'typing'; t.innerHTML = '<span></span><span></span><span></span>'; box.append(t); }
     $('#status').textContent = typing ? 'печатает…' : 'в сети';
@@ -140,6 +159,7 @@
       r.innerHTML = '<span style="opacity:.7">—</span><span></span>'; r.lastChild.textContent = t; tasks.append(r);
     }
     $('#task-time').textContent = state.final.task_time;
+    confetti();
   }
 
   // --- Отправка вопроса ---
@@ -150,14 +170,22 @@
     if (!text || busy || state.finished) return;
     busy = true; input.value = ''; clearTimeout(idleTimer);
     state.messages.push({ who: 'me', text });
+    fresh = new Set();
     renderMsgs(true);
     try {
       const r = await api('/api/message', { sessionId, text });
       const before = state.messages.length;
+      const prevShown = shown;
       apply(r.state);
+      shown = prevShown; // apply() перерисовал ленту — ответ ещё не «показан»
       const last = state.messages.length - 1;
-      if (r.newly.length) { hits.add(last); for (const f of r.newly) extra.push({ after: last, text: '🔓 Факт раскрыт: ' + f.label }); }
-      if (before > state.messages.length) {/* сервер источник истины */}
+      fresh = new Set();
+      if (r.newly.length) {
+        hits.add(last); fresh.add(last);
+        for (const f of r.newly) extra.push({ after: last, text: f.label, stamp: true });
+        $('#prog-fill').classList.remove('glint'); void $('#prog-fill').offsetWidth; $('#prog-fill').classList.add('glint');
+        setTimeout(() => burst($('#prog-fill')), 350);
+      }
       renderMsgs();
     } catch (err) {
       state.messages.pop(); input.value = text;
@@ -181,8 +209,57 @@
     }, IDLE_MS);
   }
 
+  // --- Искры из полосы прогресса при раскрытии факта ---
+  function burst(el) {
+    if (reduced || !el) return;
+    const r = el.getBoundingClientRect();
+    const x0 = r.left + r.width, y0 = r.top + r.height / 2;
+    const colors = ['var(--g1)', 'var(--g2)', 'var(--g3)', 'var(--accent)'];
+    for (let i = 0; i < 14; i++) {
+      const p = document.createElement('i'); p.className = 'particle';
+      const size = 4 + Math.random() * 6;
+      Object.assign(p.style, { left: x0 + 'px', top: y0 + 'px', width: size + 'px', height: size + 'px', background: colors[i % 4] });
+      document.body.append(p);
+      const a = Math.random() * Math.PI * 2, d = 30 + Math.random() * 60;
+      p.animate([
+        { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+        { transform: `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d + 20}px)) scale(.3)`, opacity: 0 },
+      ], { duration: 700 + Math.random() * 300, easing: 'cubic-bezier(.22,1,.36,1)' }).onfinish = () => p.remove();
+    }
+  }
+
+  // --- Конфетти из «мазков» на экране итога (один раз) ---
+  function confetti() {
+    const cv = $('#confetti');
+    if (reduced || cv.dataset.done === sessionId) return;
+    cv.dataset.done = sessionId;
+    const ctx = cv.getContext('2d'), dpr = devicePixelRatio || 1;
+    const W = cv.width = cv.offsetWidth * dpr, H = cv.height = cv.offsetHeight * dpr;
+    const css = getComputedStyle($('#app'));
+    const cols = ['--g1', '--g2', '--g3', '--accent'].map((v) => css.getPropertyValue(v).trim() || '#FF7A1A');
+    const parts = Array.from({ length: 90 }, () => ({
+      x: W / 2 + (Math.random() - .5) * W * .3, y: H * .22,
+      vx: (Math.random() - .5) * 14 * dpr, vy: (-6 - Math.random() * 10) * dpr,
+      w: (6 + Math.random() * 12) * dpr, h: (3 + Math.random() * 4) * dpr,
+      r: Math.random() * 6, vr: (Math.random() - .5) * .3, c: cols[(Math.random() * cols.length) | 0], round: Math.random() < .35,
+    }));
+    const t0 = performance.now();
+    (function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      const life = (t - t0) / 2600;
+      for (const p of parts) {
+        p.vy += .35 * dpr; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        ctx.save(); ctx.globalAlpha = Math.max(0, 1 - life); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c;
+        if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.h, 0, 7); ctx.fill(); }
+        else { ctx.beginPath(); ctx.roundRect(-p.w / 2, -p.h / 2, p.w, p.h, p.h / 2); ctx.fill(); } // мазок с круглыми краями
+        ctx.restore();
+      }
+      if (life < 1) requestAnimationFrame(frame); else ctx.clearRect(0, 0, W, H);
+    })(t0);
+  }
+
   function resetToStart() {
-    store.set('bc-session', null); sessionId = null; state = null; hits.clear(); extra.length = 0;
+    store.set('bc-session', null); sessionId = null; state = null; hits.clear(); extra.length = 0; shown = 0; fresh = new Set();
     $('#app').style.removeProperty('--accent'); $('#app').style.removeProperty('--accent-soft');
     $('#code').value = ''; go('start');
   }

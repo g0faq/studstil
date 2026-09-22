@@ -25,6 +25,13 @@
   .tag { padding: 7px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; background: var(--chip); color: var(--dim); border: 1px solid var(--stroke); }
   .tag.on { background: var(--accent); color: #1a1024; }
   .tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .team.enter { animation: riseIn .6s var(--ease-out) both; animation-delay: calc(var(--i) * 90ms); }
+  .team.bump { animation: bump .9s var(--ease-out); }
+  @keyframes bump { 0% { box-shadow: 0 0 0 0 var(--accent); } 30% { box-shadow: 0 0 0 4px var(--accent), 0 0 60px color-mix(in srgb, var(--accent) 60%, transparent); transform: translateY(-4px); } 100% { box-shadow: 0 0 0 0 transparent; transform: none; } }
+  .team.win { box-shadow: 0 0 0 2px var(--accent), 0 20px 60px color-mix(in srgb, var(--accent) 35%, transparent); }
+  .tag.pop { animation: stampIn .55s var(--ease-spring) both; }
+  .fill { transition: transform .9s var(--ease-out) !important; }
+  h1 .ch { display: inline-block; }
   .login { max-width: 420px; margin: 12vh auto; display: flex; flex-direction: column; gap: 12px; }
   .login input { padding: 16px 18px; border-radius: 18px; color: var(--ink); font-size: 16px; font-family: inherit; }
 </style>
@@ -36,7 +43,9 @@
   <button class="btn-main btn-grad" id="login-btn" type="button">Открыть</button>
   <div class="err" id="login-err"></div>
 </div>
-<div class="wrap hidden" id="board">
+<div class="blobs" aria-hidden="true" style="position:fixed"><i></i><i></i><i></i></div>
+<div class="grain" aria-hidden="true" style="position:fixed"></div>
+<div class="wrap hidden" id="board" style="position:relative">
   <div class="head">
     <h1>Кто раскроет клиента первым</h1>
     <button class="timer" id="timer" type="button" title="Клик — старт/пауза, двойной клик — сброс">Осталось <b id="time">10:00</b></button>

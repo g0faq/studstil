@@ -16,24 +16,32 @@
 <body>
 <div class="app" id="app">
   <div class="glow"></div>
+  <div class="blobs" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="grain" aria-hidden="true"></div>
 
   <!-- Старт -->
   <section class="screen" id="start">
     <div class="start-top"><button class="pill" id="theme-btn" type="button">Светлая тема</button></div>
     <div class="start-body">
-      <div class="logo">B</div>
+      <svg class="swatches" viewBox="0 0 320 132" aria-hidden="true">
+        <path class="sw sw1" pathLength="1" d="M18 40 C 70 22, 130 30, 176 26 S 262 18, 300 30"/>
+        <path class="sw sw2" pathLength="1" d="M30 78 C 90 64, 150 84, 206 70 S 270 62, 292 74"/>
+        <path class="sw sw3" pathLength="1" d="M22 112 C 64 104, 104 116, 150 106"/>
+        <circle class="dot d1" cx="226" cy="108" r="11"/>
+        <circle class="dot d2" cx="262" cy="104" r="8"/>
+        <circle class="dot d3" cx="290" cy="110" r="5"/>
+      </svg>
       <div style="display:flex;flex-direction:column;gap:14px">
-        <h1 class="title">Beauty<br>Case</h1>
-        <p class="lead">Разгадай клиента. Задавай вопросы, собирай факты, найди настоящий запрос.</p>
+        <h1 class="title" id="title" aria-label="Beauty Case">Beauty<br>Case</h1>
+        <p class="lead rise" style="--d:.9s">Разгадай клиента. Задавай вопросы, собирай факты, найди настоящий запрос.</p>
       </div>
-      <form id="code-form" style="display:flex;flex-direction:column;gap:10px;padding-top:6px">
+      <form id="code-form" class="rise" style="--d:1.05s;display:flex;flex-direction:column;gap:10px;padding-top:6px">
         <label for="code" class="caps dim" style="font-size:12px;letter-spacing:.16em">Код команды</label>
-        <input id="code" class="code-input glass" inputmode="numeric" autocomplete="off" placeholder="например, 101" maxlength="20">
+        <div class="code-field"><input id="code" class="code-input" inputmode="numeric" autocomplete="off" placeholder="например, 101" maxlength="20"></div>
         <div class="err" id="code-err" role="alert"></div>
       </form>
     </div>
-    <button class="btn-main btn-grad" id="enter-btn" type="submit" form="code-form">Войти</button>
-    <div class="foot">Один QR-код на всех · три команды</div>
+    <button class="btn-main btn-grad rise" style="--d:1.2s" id="enter-btn" type="submit" form="code-form">Войти</button>
   </section>
 
   <!-- Карточка клиента -->
@@ -44,14 +52,14 @@
       <div style="width:40px"></div>
     </div>
     <div class="card-body">
-      <div class="ring-wrap"><div class="ring"></div><div class="avatar" data-f="letter" style="width:168px;height:168px;font-size:64px;animation:bcFloat 6s ease-in-out infinite;box-shadow:0 24px 60px rgba(0,0,0,.3)"></div></div>
+      <div class="ring-wrap"><svg class="orbit" viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="104"/><circle class="spark" cx="110" cy="6" r="4"/></svg><div class="avatar" data-f="letter" style="width:168px;height:168px;font-size:64px;animation:bcFloat 6s ease-in-out infinite;box-shadow:0 24px 60px rgba(0,0,0,.3)"></div></div>
       <div style="display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center">
         <div class="display" style="font-weight:800;font-size:38px" data-f="name"></div>
         <div class="dim" style="font-size:15px;font-weight:600" data-f="meta"></div>
       </div>
       <div class="quote glass">
         <div class="caps" style="color:var(--accent)">Она сказала только это</div>
-        <div class="quote-text">«<span data-f="card_hint"></span>»</div>
+        <div class="quote-text" id="quote"></div>
       </div>
     </div>
     <button class="btn-main btn-accent" data-go="chat" type="button">Начать консультацию</button>
@@ -87,8 +95,9 @@
 
   <!-- Итог -->
   <section class="screen hidden" id="done">
+    <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
     <div class="done-head">
-      <div class="check"><span>✓</span></div>
+      <div class="check"><svg viewBox="0 0 78 78" aria-hidden="true"><circle cx="39" cy="39" r="37"/><path d="M24 40 l10 10 l20 -22" pathLength="1"/></svg></div>
       <div class="display" style="font-weight:800;font-size:30px">Проблема найдена</div>
       <div class="dim" style="font-size:15px;line-height:1.45;text-wrap:pretty" id="problem"></div>
     </div>
