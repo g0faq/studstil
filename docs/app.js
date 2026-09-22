@@ -12,8 +12,15 @@
   let busy = false;
   let idleTimer = null;
   let waitTimer = null;
+  let entering = 0; // метка последнего входа: ответ старого запроса не должен перетирать новый
   let shown = 0; // сколько сообщений уже анимировано (остальные не переигрываем)
   let fresh = new Set(); // индексы только что раскрывших факт ответов
+  // Свои иконки вместо эмодзи
+  const ICON = {
+    unlock: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 9V6.6A4 4 0 0 1 13.6 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3.2" y="9" width="13.6" height="8.4" rx="2.6" fill="currentColor"/><circle cx="10" cy="13.2" r="1.5" fill="var(--bg2)"/></svg>',
+    spark: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.6l1.9 5.1 5.1 1.9-5.1 1.9L10 15.6l-1.9-5.1L3 8.6l5.1-1.9z" fill="currentColor"/><circle cx="16.4" cy="15.2" r="1.8" fill="currentColor" opacity=".7"/><circle cx="4.2" cy="14.6" r="1.2" fill="currentColor" opacity=".5"/></svg>',
+    done: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor" opacity=".18"/><path d="M5.6 10.4l2.9 2.9 5.9-6.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const hits = new Set(); // индексы сообщений, раскрывших факт (для обводки)
   const extra = []; // системные строки в ленте: { after: индекс сообщения, text, err }
@@ -56,8 +63,10 @@
     const code = $('#code').value.trim();
     if (!code) return ($('#code-err').textContent = 'Введите код команды');
     $('#enter-btn').disabled = true; $('#code-err').textContent = '';
+    const mark = ++entering;
     try {
       const r = await api('/api/session', { code });
+      if (mark !== entering) return; // пока ждали ответ, ввели другой код
       sessionId = r.sessionId; store.set('bc-session', sessionId);
       hits.clear(); extra.length = 0; shown = 0;
       apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : 'card');
@@ -132,12 +141,18 @@
       const old = i < shown ? ' old' : '';
       box.append(bubble(m.who + (hits.has(i) ? ' hit' : '') + (fresh.has(i) ? ' reveal' : '') + old, m.text));
       for (const x of extra.filter((x) => x.after === i)) {
-        if (x.stamp) { const st = document.createElement('div'); st.className = 'stamp' + (fresh.has(i) ? ' fresh' : ''); st.textContent = '🔓 ' + x.text; box.append(st); }
+        if (x.stamp) {
+          const st = document.createElement('div');
+          st.className = 'stamp' + (fresh.has(i) ? ' fresh' : '');
+          st.innerHTML = ICON.unlock + '<span></span>';
+          st.querySelector('span').textContent = x.text;
+          box.append(st);
+        }
         else box.append(bubble('sys' + (x.err ? ' err' : '') + old, x.text));
       }
     });
     shown = state.messages.length;
-    if (state.finished && state.final) { box.append(bubble('them hit', state.final.message)); box.append(bubble('sys', '🎉 Вы выяснили запрос клиентки! Нажмите «Сформулировать проблему»')); }
+    if (state.finished && state.final) { box.append(bubble('them hit', state.final.message)); const s = bubble('sys', ''); s.innerHTML = ICON.spark + '<span></span>'; s.querySelector('span').textContent = 'Вы выяснили запрос клиентки! Нажмите «Сформулировать проблему»'; box.append(s); }
     if (typing) { const t = document.createElement('div'); t.className = 'typing'; t.innerHTML = '<span></span><span></span><span></span>'; box.append(t); }
     $('#status').textContent = typing ? 'печатает…' : 'в сети';
     scrollDown();
@@ -285,8 +300,12 @@
 
   // --- Восстановление после перезагрузки страницы ---
   if (sessionId) {
-    api('/api/session?id=' + encodeURIComponent(sessionId))
-      .then((r) => { apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : r.state.finished ? 'done' : 'chat'); })
+    const restoring = sessionId;
+    api('/api/session?id=' + encodeURIComponent(restoring))
+      .then((r) => {
+        if (entering || sessionId !== restoring) return; // уже вошли по новому коду — старую сессию игнорируем
+        apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : r.state.finished ? 'done' : 'chat');
+      })
       .catch(() => store.set('bc-session', null));
   }
 })();

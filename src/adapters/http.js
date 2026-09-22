@@ -21,7 +21,8 @@ const ERR_TEXT = {
 };
 
 const ipHits = new Map();
-function ipLimited(ip, max = 20, windowMs = 60_000) {
+// В классе все устройства выходят через один IP — лимит должен быть щедрым
+function ipLimited(ip, max = 200, windowMs = 60_000) {
   const now = Date.now();
   const arr = (ipHits.get(ip) || []).filter((t) => now - t < windowMs);
   arr.push(now); ipHits.set(ip, arr);
@@ -77,7 +78,7 @@ async function route(req, res) {
   if (r === 'GET /api/health') return send(res, 200, { ok: true });
 
   if (r === 'POST /api/session') {
-    if (ipLimited(ip)) return send(res, 429, { error: 'Слишком много попыток, подождите минуту.' });
+    if (ipLimited(ip)) return send(res, 429, { error: 'Слишком много попыток входа, подождите минуту.' });
     const { code } = await readBody(req);
     const id = crypto.randomUUID();
     const out = await enterCode(sid(id), String(code || '').slice(0, 40));

@@ -1,6 +1,11 @@
 (() => {
   const API = window.API_URL || '';
   const $ = (s) => document.querySelector(s);
+  // Свои иконки вместо эмодзи: рисуем в цвете акцента
+  const ICON = {
+    check: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor" opacity=".18"/><path d="M5.6 10.4l2.9 2.9 5.9-6.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    wait: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".45" stroke-dasharray="3 3.4"/><circle cx="6.4" cy="10" r="1.5" fill="currentColor"><animate attributeName="opacity" values=".25;1;.25" dur="1.4s" repeatCount="indefinite"/></circle><circle cx="10" cy="10" r="1.5" fill="currentColor"><animate attributeName="opacity" values=".25;1;.25" dur="1.4s" begin=".2s" repeatCount="indefinite"/></circle><circle cx="13.6" cy="10" r="1.5" fill="currentColor"><animate attributeName="opacity" values=".25;1;.25" dur="1.4s" begin=".4s" repeatCount="indefinite"/></circle></svg>',
+  };
   const ls = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
   const params = new URLSearchParams(location.search);
   let key = params.get('key') || ls.get('bc-admin-key') || '';
@@ -88,7 +93,7 @@
     for (const t of game.teams) {
       const card = document.createElement('div');
       card.className = 'code-card glass';
-      card.innerHTML = `<div class="caps dim"></div><div class="code-num"></div><div class="mini"></div><div class="join" data-join="${t.scenario_id}">⏳ ждём команду</div>`;
+      card.innerHTML = `<div class="caps dim"></div><div class="code-num"></div><div class="mini"></div><div class="join" data-join="${t.scenario_id}"></div>`;
       card.querySelector('.caps').textContent = t.name;
       card.querySelector('.code-num').textContent = t.code;
       card.querySelector('.mini').textContent = t.client;
@@ -117,7 +122,7 @@
           const on = t.sessions > 0;
           if (on) ready++;
           if (el) {
-            el.textContent = on ? `✅ подключились · ${t.sessions}` : '⏳ ждём команду';
+            el.innerHTML = on ? `${ICON.check} подключились · ${t.sessions}` : `${ICON.wait} ждём команду`;
             el.classList.toggle('on', on);
             el.closest('.code-card').classList.toggle('ready', on);
           }

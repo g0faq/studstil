@@ -41,7 +41,7 @@ button:disabled { opacity: .5; cursor: default; }
 .hidden { display: none !important; }
 
 .btn-main { flex: none; width: 100%; padding: 20px; border: none; border-radius: 24px; color: #fff; font-family: Unbounded, sans-serif; font-size: 17px; font-weight: 600; box-shadow: 0 16px 40px rgba(0,0,0,0.28); }
-.btn-grad { background: linear-gradient(100deg,var(--g1),var(--g2),var(--g1)); box-shadow: 0 16px 40px var(--glow1s); color: #140A02; }
+.btn-grad { background: linear-gradient(100deg, var(--g3) -10%, var(--g1) 40%, var(--g2) 110%); box-shadow: 0 16px 40px var(--glow1s); color: #140A02; }
 .btn-accent { background: var(--accent); }
 .icon-btn { border: none; background: var(--chip); width: 40px; height: 40px; border-radius: 14px; font-size: 17px; flex: none; }
 .pill { border: 1px solid var(--stroke); background: var(--chip); padding: 9px 13px; border-radius: 14px; font-size: 12px; font-weight: 700; }
@@ -179,6 +179,8 @@ button:disabled { opacity: .5; cursor: default; }
 .msg.them.reveal { position: relative; overflow: hidden; }
 .msg.them.reveal::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--accent) 45%, transparent) 50%, transparent 70%); transform: translateX(-100%); animation: sweep .9s var(--ease-out) .15s forwards; }
 @keyframes sweep { to { transform: translateX(100%); } }
+.ic { width: 1.15em; height: 1.15em; flex: none; }
+.msg.sys { display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
 .stamp { align-self: center; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: var(--accent); color: #140A02; font-size: 13px; font-weight: 800; letter-spacing: .02em; box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 45%, transparent); }
 .stamp.fresh { animation: stampIn .55s var(--ease-spring) both .25s; }
 @keyframes stampIn { from { opacity: 0; transform: scale(1.6) rotate(-8deg); filter: blur(4px); } to { opacity: 1; transform: rotate(-2deg); filter: none; } }

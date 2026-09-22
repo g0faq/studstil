@@ -7,6 +7,12 @@
   if (params.get('key')) { ls.set('bc-admin-key', key); history.replaceState(null, '', location.pathname + (params.get('min') ? '?min=' + params.get('min') : '')); } // не держим ключ в адресной строке
   let pollTimer;
   const prev = new Map(); // id → { done, tags } с прошлого опроса
+  // Свои иконки вместо эмодзи
+  const ICON = {
+    unlock: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 9V6.6A4 4 0 0 1 13.6 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3.2" y="9" width="13.6" height="8.4" rx="2.6" fill="currentColor"/><circle cx="10" cy="13.2" r="1.5" fill="var(--bg2)"/></svg>',
+    spark: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.6l1.9 5.1 5.1 1.9-5.1 1.9L10 15.6l-1.9-5.1L3 8.6l5.1-1.9z" fill="currentColor"/><circle cx="16.4" cy="15.2" r="1.8" fill="currentColor" opacity=".7"/><circle cx="4.2" cy="14.6" r="1.2" fill="currentColor" opacity=".5"/></svg>',
+    done: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor" opacity=".18"/><path d="M5.6 10.4l2.9 2.9 5.9-6.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let firstPaint = true;
 
@@ -47,8 +53,9 @@
         tags.append(el('span', 'tag' + (g.on ? ' on' : '') + (isNew ? ' pop' : ''), g.on ? g.label : '• • •')); // закрытые не подсказываем
       });
       for (const x of t.extra) tags.append(el('span', 'tag', '+ ' + x));
-      const status = t.finished ? '✅ Проблема сформулирована' : t.sessions ? `Идёт консультация · устройств: ${t.sessions}` : 'Ждём команду…';
-      const st = el('div', 'status', status);
+      const st = el('div', 'status' + (t.finished ? ' ok' : ''));
+      if (t.finished) { st.innerHTML = ICON.done + '<span></span>'; st.querySelector('span').textContent = 'Проблема сформулирована'; }
+      else st.textContent = t.sessions ? `Идёт консультация · устройств: ${t.sessions}` : 'Ждём команду…';
       card.append(head, score, track, tags, st);
       grid.append(card);
       prev.set(t.id, { done: t.done, tags: t.tags.map((g) => g.on) });
