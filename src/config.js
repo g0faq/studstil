@@ -1,0 +1,20 @@
+import 'dotenv/config';
+
+const num = (v, d) => (v === undefined || v === '' ? d : Number(v));
+
+export const config = {
+  telegramToken: process.env.TELEGRAM_BOT_TOKEN,
+  openaiKey: process.env.OPENAI_API_KEY,
+  openaiModel: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+  openaiBaseUrl: process.env.OPENAI_BASE_URL || undefined,
+  temperature: num(process.env.OPENAI_TEMPERATURE, 0.7),
+  adminIds: (process.env.ADMIN_IDS || '').split(',').map((s) => s.trim()).filter(Boolean),
+  historyLimit: num(process.env.HISTORY_LIMIT, 16),
+  maxInputChars: num(process.env.MAX_INPUT_CHARS, 500),
+  rateLimitMs: num(process.env.RATE_LIMIT_MS, 2500),
+  port: num(process.env.PORT, 8080),
+  adminKey: process.env.ADMIN_KEY || '',
+  webOrigins: (process.env.WEB_ORIGIN || '*').split(',').map((s) => s.trim()).filter(Boolean),
+  serveStatic: process.env.SERVE_STATIC !== '0',
+  dbPath: process.env.DB_PATH || 'data/bot.db',
+};

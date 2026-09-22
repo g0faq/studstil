@@ -1,0 +1,4 @@
+# /etc/caddy/Caddyfile — HTTPS-сертификат Caddy получает сам (Let's Encrypt)
+api.studstil.ru {
+	reverse_proxy 127.0.0.1:8080
+}

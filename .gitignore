@@ -1,0 +1,6 @@
+node_modules
+.env
+data/
+qr.png
+.claude/
+.DS_Store

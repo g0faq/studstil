@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #0E0B14; }
+  a { color: #FF4FA3; text-decoration: none; }
+  a:hover { color: #FF87C2; }
+  [data-theme="dark"] {
+    --bg: #0E0B14; --bg2: #16101F; --surface: rgba(255,255,255,0.06);
+    --glass: rgba(255,255,255,0.08); --stroke: rgba(255,255,255,0.14);
+    --ink: #F7F3FB; --dim: #A79ABF; --neon: #FF4FA3; --chip: rgba(255,255,255,0.07);
+    --bubble-them: rgba(255,255,255,0.09); --shadow: 0 30px 80px rgba(0,0,0,0.55);
+  }
+  [data-theme="light"] {
+    --bg: #F4EFF7; --bg2: #FFFFFF; --surface: rgba(255,255,255,0.7);
+    --glass: rgba(255,255,255,0.66); --stroke: rgba(36,27,51,0.12);
+    --ink: #241B33; --dim: #6E6386; --neon: #D93F93; --chip: rgba(36,27,51,0.05);
+    --bubble-them: rgba(36,27,51,0.06); --shadow: 0 24px 60px rgba(84,62,120,0.18);
+  }
+  @keyframes bcFade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes bcPop { 0% { opacity: 0; transform: scale(0.94) translateY(8px); } 100% { opacity: 1; transform: none; } }
+  @keyframes bcBlink { 0%, 60%, 100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+  @keyframes bcFloat { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.03); } }
+  @keyframes bcRing { from { transform: scale(0.7); opacity: 0.9; } to { transform: scale(1.5); opacity: 0; } }
+  @keyframes bcShine { from { background-position: 0% 50%; } to { background-position: 200% 50%; } }
+</style>
+</helmet>
+<div data-theme="{{ theme }}" style="min-height:100vh;background:var(--bg,#0E0B14);color:var(--ink,#F7F3FB);font-family:Manrope,'Helvetica Neue',sans-serif;padding:26px 20px 70px;display:flex;flex-direction:column;align-items:center;gap:26px">
+
+  <div style="width:100%;max-width:1180px;display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="font-family:Unbounded,sans-serif;font-weight:800;font-size:19px;letter-spacing:-0.02em">Beauty&nbsp;Case</div>
+      <div style="font-size:12px;color:var(--dim,#A79ABF);letter-spacing:0.14em;text-transform:uppercase">Прототип · мобильный веб</div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="4">
+        <button onClick="{{ n.go }}" style="border:1px solid var(--stroke,rgba(255,255,255,0.14));background:{{ n.bg }};color:{{ n.fg }};padding:9px 14px;border-radius:999px;font-family:Manrope,sans-serif;font-size:13px;font-weight:600;cursor:pointer">{{ n.label }}</button>
+      </sc-for>
+    </div>
+    <button onClick="{{ toggleTheme }}" style="border:1px solid var(--stroke,rgba(255,255,255,0.14));background:var(--chip,rgba(255,255,255,0.07));color:var(--ink,#F7F3FB);padding:9px 16px;border-radius:999px;font-family:Manrope,sans-serif;font-size:13px;font-weight:600;cursor:pointer">{{ themeLabel }}</button>
+  </div>
+
+  <div style="--accent: {{ accent }};--accent-soft: {{ accentSoft }};width:390px;max-width:100%;height:844px;border-radius:52px;padding:11px;background:linear-gradient(160deg,rgba(255,255,255,0.22),rgba(255,255,255,0.04));box-shadow:var(--shadow,0 30px 80px rgba(0,0,0,0.55));flex:none">
+    <div style="position:relative;width:100%;height:100%;border-radius:42px;overflow:hidden;background:var(--bg2,#16101F)">
+
+      <div style="position:absolute;inset:0;background:radial-gradient(120% 60% at 12% -8%, var(--accent-soft, rgba(167,139,250,0.55)) 0%, transparent 62%), radial-gradient(90% 50% at 100% 104%, var(--accent-soft, rgba(167,139,250,0.4)) 0%, transparent 58%)"></div>
+
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:16px 26px 6px;font-size:13px;font-weight:700;letter-spacing:0.02em;opacity:0.72">
+          <span>9:41</span>
+          <span style="display:flex;gap:5px;align-items:center">
+            <span style="width:16px;height:9px;border-radius:2px;border:1.5px solid currentColor;opacity:0.8"></span>
+            <span style="width:18px;height:9px;border-radius:2px;background:currentColor;opacity:0.8"></span>
+          </span>
+        </div>
+
+        <sc-if value="{{ isStart }}" hint-placeholder-val="{{ true }}">
+          <div key="start" style="flex:1;display:flex;flex-direction:column;padding:0 26px 34px;animation:bcFade 0.5s ease both;overflow:hidden">
+            <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px">
+              <div style="width:96px;height:96px;border-radius:32px;background:linear-gradient(140deg,#FF4FA3,#A78BFA 55%,#FFB68A);display:flex;align-items:center;justify-content:center;animation:bcFloat 5s ease-in-out infinite;box-shadow:0 20px 50px rgba(255,79,163,0.35)">
+                <span style="font-family:Unbounded,sans-serif;font-weight:800;font-size:40px;color:#fff">B</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <div style="font-family:Unbounded,sans-serif;font-weight:800;font-size:46px;line-height:0.95;letter-spacing:-0.035em;text-wrap:pretty">Beauty<br>Case</div>
+                <div style="font-size:17px;line-height:1.45;color:var(--dim,#A79ABF);max-width:290px;text-wrap:pretty">Разгадай клиента. Задавай вопросы, собирай факты, найди настоящий запрос.</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;padding-top:6px">
+                <label style="font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:var(--dim,#A79ABF);font-weight:700">Код команды</label>
+                <input value="{{ code }}" onChange="{{ onCode }}" placeholder="например, 101" style="width:100%;box-sizing:border-box;padding:19px 22px;border-radius:22px;border:1px solid var(--stroke,rgba(255,255,255,0.14));background:var(--glass,rgba(255,255,255,0.08));backdrop-filter:blur(18px);color:var(--ink,#F7F3FB);font-family:Unbounded,sans-serif;font-size:22px;font-weight:600;letter-spacing:0.12em;outline:none">
+                <div style="display:flex;gap:8px">
+                  <sc-for list="{{ quickCodes }}" as="q" hint-placeholder-count="3">
+                    <button onClick="{{ q.go }}" style="flex:1;border:1px dashed var(--stroke,rgba(255,255,255,0.14));background:transparent;color:var(--dim,#A79ABF);padding:11px 0;border-radius:16px;font-family:Manrope,sans-serif;font-size:13px;font-weight:600;cursor:pointer">{{ q.label }}</button>
+                  </sc-for>
+                </div>
+                <div style="min-height:18px;font-size:13px;font-weight:600;color:#FF6B8A">{{ codeError }}</div>
+              </div>
+            </div>
+            <button onClick="{{ submitCode }}" style="flex:none;width:100%;padding:20px;border:none;border-radius:24px;background:linear-gradient(100deg,#FF4FA3,#A78BFA);background-size:200% 100%;animation:bcShine 6s linear infinite alternate;color:#fff;font-family:Unbounded,sans-serif;font-size:17px;font-weight:600;cursor:pointer;box-shadow:0 16px 40px rgba(255,79,163,0.35)">Войти</button>
+            <div style="flex:none;text-align:center;font-size:12px;color:var(--dim,#A79ABF);padding-top:14px">Один QR-код на всех · три команды</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isCard }}" hint-placeholder-val="{{ false }}">
+          <div key="card" style="flex:1;display:flex;flex-direction:column;padding:6px 24px 30px;animation:bcFade 0.5s ease both;overflow:hidden">
+            <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 2px 18px">
+              <button onClick="{{ toStart }}" style="border:none;background:var(--chip,rgba(255,255,255,0.07));color:var(--ink,#F7F3FB);width:40px;height:40px;border-radius:14px;font-size:17px;cursor:pointer">←</button>
+              <div style="font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:var(--dim,#A79ABF);font-weight:700">Карточка клиента</div>
+              <div style="width:40px"></div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:24px">
+              <div style="position:relative;display:flex;justify-content:center">
+                <div style="position:absolute;top:50%;left:50%;width:180px;height:180px;margin:-90px 0 0 -90px;border-radius:50%;border:1px solid var(--accent, #A78BFA);animation:bcRing 3s ease-out infinite"></div>
+                <div style="width:168px;height:168px;border-radius:50%;background:radial-gradient(70% 70% at 32% 26%, rgba(255,255,255,0.55) 0%, transparent 60%), linear-gradient(150deg, var(--accent, #A78BFA), rgba(255,255,255,0.12));display:flex;align-items:center;justify-content:center;box-shadow:0 24px 60px rgba(0,0,0,0.3);animation:bcFloat 6s ease-in-out infinite">
+                  <span style="font-family:Unbounded,sans-serif;font-weight:800;font-size:64px;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,0.25)">{{ char.letter }}</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center">
+                <div style="font-family:Unbounded,sans-serif;font-weight:800;font-size:38px;letter-spacing:-0.03em">{{ char.name }}</div>
+                <div style="font-size:15px;color:var(--dim,#A79ABF);font-weight:600">{{ char.meta }}</div>
+              </div>
+              <div style="padding:24px;border-radius:26px;background:var(--glass,rgba(255,255,255,0.08));border:1px solid var(--stroke,rgba(255,255,255,0.14));backdrop-filter:blur(20px);display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--accent,#A78BFA);font-weight:800">Она сказала только это</div>
+                <div style="font-family:Unbounded,sans-serif;font-weight:400;font-size:21px;line-height:1.35;letter-spacing:-0.02em;text-wrap:pretty">«{{ char.hint }}»</div>
+              </div>
+            </div>
+            <button onClick="{{ toChat }}" style="flex:none;width:100%;padding:20px;border:none;border-radius:24px;background:var(--accent,#A78BFA);color:#fff;font-family:Unbounded,sans-serif;font-size:17px;font-weight:600;cursor:pointer;box-shadow:0 16px 40px rgba(0,0,0,0.28)">Начать консультацию</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isChat }}" hint-placeholder-val="{{ false }}">
+          <div key="chat" style="flex:1;display:flex;flex-direction:column;min-height:0;animation:bcFade 0.4s ease both">
+            <div style="flex:none;display:flex;align-items:center;gap:12px;padding:8px 20px 14px">
+              <button onClick="{{ toCard }}" style="border:none;background:var(--chip,rgba(255,255,255,0.07));color:var(--ink,#F7F3FB);width:38px;height:38px;border-radius:13px;font-size:16px;cursor:pointer">←</button>
+              <div style="width:42px;height:42px;border-radius:50%;background:radial-gradient(70% 70% at 32% 26%, rgba(255,255,255,0.5) 0%, transparent 60%), linear-gradient(150deg, var(--accent,#A78BFA), rgba(255,255,255,0.12));display:flex;align-items:center;justify-content:center;font-family:Unbounded,sans-serif;font-weight:800;font-size:17px;color:#fff">{{ char.letter }}</div>
+              <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
+                <div style="font-family:Unbounded,sans-serif;font-weight:600;font-size:17px;letter-spacing:-0.02em">{{ char.name }}</div>
+                <div style="font-size:12px;color:var(--accent,#A78BFA);font-weight:600">{{ statusLine }}</div>
+              </div>
+              <button onClick="{{ toggleDossier }}" style="border:1px solid var(--stroke,rgba(255,255,255,0.14));background:var(--chip,rgba(255,255,255,0.07));color:var(--ink,#F7F3FB);padding:9px 13px;border-radius:14px;font-size:12px;font-weight:700;font-family:Manrope,sans-serif;cursor:pointer">Досье</button>
+            </div>
+
+            <div style="flex:none;margin:0 20px 10px;padding:14px 16px;border-radius:20px;background:var(--glass,rgba(255,255,255,0.08));border:1px solid var(--stroke,rgba(255,255,255,0.14));backdrop-filter:blur(18px);display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <span style="font-size:13px;font-weight:700">Раскрыто {{ foundCount }} из {{ totalFacts }} фактов</span>
+                <span style="font-size:12px;color:var(--dim,#A79ABF);font-weight:600">{{ progressLabel }}</span>
+              </div>
+              <div style="height:8px;border-radius:99px;background:var(--chip,rgba(255,255,255,0.07));overflow:hidden">
+                <div style="height:100%;width:{{ progressPct }};border-radius:99px;background:linear-gradient(90deg, var(--accent,#A78BFA), #FF4FA3);transition:width 0.6s cubic-bezier(.4,0,.2,1)"></div>
+              </div>
+              <sc-if value="{{ showDossier }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px">
+                  <sc-for list="{{ facts }}" as="f" hint-placeholder-count="4">
+                    <div style="padding:12px 14px;border-radius:16px;border:1px solid {{ f.border }};background:{{ f.bg }};opacity:{{ f.opacity }};display:flex;flex-direction:column;gap:4px">
+                      <div style="font-size:10px;letter-spacing:0.16em;text-transform:uppercase;font-weight:800;color:var(--accent,#A78BFA)">{{ f.label }}</div>
+                      <div style="font-size:13px;line-height:1.4;font-weight:{{ f.weight }};color:{{ f.color }};text-wrap:pretty">{{ f.display }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+
+            <div style="flex:1;min-height:0;overflow-y:auto;padding:6px 20px 10px;display:flex;flex-direction:column;gap:10px">
+              <sc-for list="{{ messages }}" as="m" hint-placeholder-count="3">
+                <div style="display:flex;justify-content:{{ m.just }};animation:bcPop 0.35s ease both">
+                  <div style="max-width:78%;padding:13px 16px;border-radius:{{ m.radius }};background:{{ m.bg }};color:{{ m.color }};font-size:15px;line-height:1.42;font-weight:{{ m.weight }};border:1px solid {{ m.border }};text-wrap:pretty">{{ m.text }}</div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;justify-content:flex-start">
+                  <div style="display:flex;gap:5px;padding:16px 18px;border-radius:22px 22px 22px 8px;background:var(--bubble-them,rgba(255,255,255,0.09))">
+                    <span style="width:7px;height:7px;border-radius:50%;background:var(--accent,#A78BFA);animation:bcBlink 1.2s infinite 0s"></span>
+                    <span style="width:7px;height:7px;border-radius:50%;background:var(--accent,#A78BFA);animation:bcBlink 1.2s infinite 0.2s"></span>
+                    <span style="width:7px;height:7px;border-radius:50%;background:var(--accent,#A78BFA);animation:bcBlink 1.2s infinite 0.4s"></span>
+                  </div>
+                </div>
+              </sc-if>
+              <div ref="{{ endRef }}"></div>
+            </div>
+
+            <sc-if value="{{ allFound }}" hint-placeholder-val="{{ false }}">
+              <div style="flex:none;padding:0 20px 12px">
+                <button onClick="{{ toDone }}" style="width:100%;padding:18px;border:none;border-radius:22px;background:linear-gradient(100deg,#FF4FA3,#A78BFA);color:#fff;font-family:Unbounded,sans-serif;font-size:16px;font-weight:600;cursor:pointer;animation:bcPop 0.4s ease both;box-shadow:0 14px 34px rgba(255,79,163,0.35)">Сформулировать проблему</button>
+              </div>
+            </sc-if>
+
+            <div style="flex:none;display:flex;gap:8px;overflow-x:auto;padding:0 20px 10px">
+              <sc-for list="{{ chips }}" as="c" hint-placeholder-count="3">
+                <button onClick="{{ c.go }}" style="flex:none;border:1px solid var(--stroke,rgba(255,255,255,0.14));background:var(--chip,rgba(255,255,255,0.07));color:var(--dim,#A79ABF);padding:10px 14px;border-radius:999px;font-family:Manrope,sans-serif;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer">{{ c.label }}</button>
+              </sc-for>
+            </div>
+
+            <div style="flex:none;display:flex;gap:10px;padding:0 20px 22px;align-items:center">
+              <input value="{{ input }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="Задайте вопрос клиентке…" style="flex:1;min-width:0;padding:16px 18px;border-radius:20px;border:1px solid var(--stroke,rgba(255,255,255,0.14));background:var(--glass,rgba(255,255,255,0.08));backdrop-filter:blur(18px);color:var(--ink,#F7F3FB);font-family:Manrope,sans-serif;font-size:15px;font-weight:500;outline:none">
+              <button onClick="{{ send }}" style="flex:none;width:54px;height:54px;border:none;border-radius:20px;background:var(--accent,#A78BFA);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,0.25)">↑</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+          <div key="done" style="flex:1;display:flex;flex-direction:column;min-height:0;animation:bcFade 0.5s ease both">
+            <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 26px 18px">
+              <div style="position:relative;display:flex;align-items:center;justify-content:center">
+                <div style="position:absolute;width:78px;height:78px;border-radius:50%;border:2px solid var(--accent,#A78BFA);animation:bcRing 2.4s ease-out infinite"></div>
+                <div style="width:78px;height:78px;border-radius:50%;background:linear-gradient(140deg,#FF4FA3,var(--accent,#A78BFA));display:flex;align-items:center;justify-content:center;font-size:34px;color:#fff;animation:bcPop 0.5s ease both">✓</div>
+              </div>
+              <div style="font-family:Unbounded,sans-serif;font-weight:800;font-size:30px;letter-spacing:-0.03em;text-align:center">Проблема найдена</div>
+              <div style="font-size:15px;line-height:1.45;color:var(--dim,#A79ABF);text-align:center;text-wrap:pretty">{{ char.problem }}</div>
+            </div>
+            <div style="flex:1;min-height:0;overflow-y:auto;padding:0 22px 22px;display:flex;flex-direction:column;gap:12px">
+              <div style="padding:18px;border-radius:24px;background:var(--glass,rgba(255,255,255,0.08));border:1px solid var(--stroke,rgba(255,255,255,0.14));backdrop-filter:blur(18px);display:flex;flex-direction:column;gap:12px">
+                <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:800;color:var(--accent,#A78BFA)">Досье · {{ char.name }}</div>
+                <sc-for list="{{ facts }}" as="f" hint-placeholder-count="4">
+                  <div style="display:flex;gap:12px;align-items:flex-start">
+                    <div style="flex:none;width:26px;height:26px;border-radius:9px;background:var(--chip,rgba(255,255,255,0.07));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--accent,#A78BFA)">{{ f.num }}</div>
+                    <div style="display:flex;flex-direction:column;gap:2px">
+                      <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:var(--dim,#A79ABF)">{{ f.title }}</div>
+                      <div style="font-size:14px;line-height:1.4;font-weight:600;text-wrap:pretty">{{ f.text }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="padding:20px;border-radius:24px;background:linear-gradient(150deg, var(--accent,#A78BFA), rgba(255,79,163,0.85));color:#fff;display:flex;flex-direction:column;gap:12px;box-shadow:0 18px 44px rgba(0,0,0,0.25)">
+                <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:800;opacity:0.85">Задание команде · офлайн</div>
+                <sc-for list="{{ char.tasks }}" as="t" hint-placeholder-count="3">
+                  <div style="display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.4;font-weight:600">
+                    <span style="opacity:0.7">—</span>
+                    <span style="text-wrap:pretty">{{ t }}</span>
+                  </div>
+                </sc-for>
+                <div style="font-size:13px;opacity:0.85;padding-top:4px">Время на подготовку образа: 25 минут</div>
+              </div>
+              <button onClick="{{ restart }}" style="width:100%;padding:16px;border:1px solid var(--stroke,rgba(255,255,255,0.14));border-radius:20px;background:transparent;color:var(--dim,#A79ABF);font-family:Manrope,sans-serif;font-size:14px;font-weight:700;cursor:pointer">Вернуться к началу</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isTeacher }}" hint-placeholder-val="{{ false }}">
+          <div key="teacher" style="flex:1;display:flex;flex-direction:column;gap:12px;padding:16px 22px 26px;animation:bcFade 0.4s ease both;overflow-y:auto">
+            <div style="font-family:Unbounded,sans-serif;font-weight:800;font-size:26px;letter-spacing:-0.03em">Табло команд</div>
+            <div style="font-size:13px;color:var(--dim,#A79ABF)">Экран преподавателя открывается на проекторе — см. широкую версию ниже под телефоном.</div>
+            <sc-for list="{{ teams }}" as="t" hint-placeholder-count="3">
+              <div style="padding:16px;border-radius:22px;background:var(--glass,rgba(255,255,255,0.08));border:1px solid var(--stroke,rgba(255,255,255,0.14));display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(150deg,{{ t.accent }},rgba(255,255,255,0.15));display:flex;align-items:center;justify-content:center;font-family:Unbounded,sans-serif;font-weight:800;font-size:14px;color:#fff">{{ t.letter }}</div>
+                  <div style="flex:1;font-weight:700;font-size:15px">{{ t.team }}</div>
+                  <div style="font-size:13px;font-weight:700;color:{{ t.accent }}">{{ t.score }}</div>
+                </div>
+                <div style="height:8px;border-radius:99px;background:var(--chip,rgba(255,255,255,0.07));overflow:hidden">
+                  <div style="height:100%;width:{{ t.pct }};border-radius:99px;background:{{ t.accent }};transition:width 0.8s ease"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:99px;background:currentColor;opacity:0.22"></div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ showTeacher }}" hint-placeholder-val="{{ true }}">
+    <div style="width:100%;max-width:1180px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <div style="font-family:Unbounded,sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.03em">Экран преподавателя</div>
+        <div style="font-size:13px;color:var(--dim,#A79ABF)">проектор · 16:9 · обновляется в реальном времени</div>
+        <div style="flex:1"></div>
+        <button onClick="{{ tick }}" style="border:1px solid var(--stroke,rgba(255,255,255,0.14));background:var(--chip,rgba(255,255,255,0.07));color:var(--ink,#F7F3FB);padding:9px 16px;border-radius:999px;font-family:Manrope,sans-serif;font-size:13px;font-weight:600;cursor:pointer">Симулировать ход</button>
+      </div>
+      <div style="width:100%;border-radius:32px;padding:34px;background:var(--bg2,#16101F);border:1px solid var(--stroke,rgba(255,255,255,0.14));box-shadow:var(--shadow,0 30px 80px rgba(0,0,0,0.55));display:flex;flex-direction:column;gap:26px">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap">
+          <div style="font-family:Unbounded,sans-serif;font-weight:800;font-size:40px;line-height:1;letter-spacing:-0.035em">Кто раскроет клиента первым</div>
+          <div style="font-size:15px;font-weight:700;color:var(--dim,#A79ABF)">Осталось <span style="color:var(--neon,#FF4FA3)">07:20</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px">
+          <sc-for list="{{ teams }}" as="t" hint-placeholder-count="3">
+            <div style="padding:26px;border-radius:26px;background:var(--glass,rgba(255,255,255,0.08));border:1px solid var(--stroke,rgba(255,255,255,0.14));backdrop-filter:blur(20px);display:flex;flex-direction:column;gap:18px;position:relative;overflow:hidden">
+              <div style="position:absolute;top:-60px;right:-40px;width:170px;height:170px;border-radius:50%;background:{{ t.accent }};opacity:0.28;filter:blur(30px)"></div>
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:60px;height:60px;border-radius:50%;background:radial-gradient(70% 70% at 32% 26%, rgba(255,255,255,0.5) 0%, transparent 60%), linear-gradient(150deg,{{ t.accent }},rgba(255,255,255,0.12));display:flex;align-items:center;justify-content:center;font-family:Unbounded,sans-serif;font-weight:800;font-size:24px;color:#fff">{{ t.letter }}</div>
+                <div style="display:flex;flex-direction:column;gap:2px">
+                  <div style="font-family:Unbounded,sans-serif;font-weight:600;font-size:20px;letter-spacing:-0.02em">{{ t.team }}</div>
+                  <div style="font-size:14px;color:var(--dim,#A79ABF);font-weight:600">{{ t.client }}</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span style="font-family:Unbounded,sans-serif;font-weight:800;font-size:56px;line-height:1;letter-spacing:-0.04em;color:{{ t.accent }}">{{ t.done }}</span>
+                <span style="font-size:20px;font-weight:700;color:var(--dim,#A79ABF)">/ 4 факта</span>
+              </div>
+              <div style="height:12px;border-radius:99px;background:var(--chip,rgba(255,255,255,0.07));overflow:hidden">
+                <div style="height:100%;width:{{ t.pct }};border-radius:99px;background:linear-gradient(90deg,{{ t.accent }},#FF4FA3);transition:width 0.8s cubic-bezier(.4,0,.2,1)"></div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <sc-for list="{{ t.tags }}" as="tag" hint-placeholder-count="4">
+                  <span style="padding:7px 12px;border-radius:999px;font-size:13px;font-weight:700;background:{{ tag.bg }};color:{{ tag.color }};border:1px solid var(--stroke,rgba(255,255,255,0.14))">{{ tag.label }}</span>
+                </sc-for>
+              </div>
+              <div style="font-size:14px;font-weight:600;color:var(--dim,#A79ABF)">{{ t.status }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showTokens }}" hint-placeholder-val="{{ true }}">
+    <div style="width:100%;max-width:1180px;display:flex;flex-direction:column;gap:16px">
+      <div style="font-family:Unbounded,sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.03em">Дизайн-токены</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+
+        <div style="padding:24px;border-radius:26px;background:var(--glass,rgba(255,255,255,0.08));border:1px solid var(--stroke,rgba(255,255,255,0.14));display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:800;color:var(--dim,#A79ABF)">Палитра · две темы</div>
+          <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:40px;height:40px;border-radius:13px;background:{{ s.value }};border:1px solid var(--stroke,rgba(255,255,255,0.14));flex:none"></div>
+              <div style="display:flex;flex-direction:column;gap:1px;min-width:0">
+                <div style="font-size:13px;font-weight:700">{{ s.name }}</div>
+                <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--dim,#A79ABF)">{{ s.value }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="padding:24px;border-radius:26px;background:var(--glass,rgba(255,255,255,0.08));border:1px solid var(--stroke,rgba(255,255,255,0.14));display:flex;flex-direction:column;gap:16px">
+          <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:800;color:var(--dim,#A79ABF)">Типографика</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="font-family:Unbounded,sans-serif;font-weight:800;font-size:38px;line-height:1;letter-spacing:-0.035em">Unbounded</div>
+            <div style="font-size:13px;color:var(--dim,#A79ABF)">Заголовки · 800 / 600 · трекинг −3%. Дисплей 46 / 38 / 30 / 22</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="font-family:Manrope,sans-serif;font-weight:700;font-size:30px;line-height:1.1">Manrope</div>
+            <div style="font-size:13px;color:var(--dim,#A79ABF)">Интерфейс и текст · 400 / 500 / 600 / 700. Тело 15–17, подписи 12–13, капс-лейблы 11 / +0.18em</div>
+          </div>
+        </div>
+
+        <div style="padding:24px;border-radius:26px;background:var(--glass,rgba(255,255,255,0.08));border:1px solid var(--stroke,rgba(255,255,255,0.14));display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:800;color:var(--dim,#A79ABF)">Радиусы и стекло</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <sc-for list="{{ radii }}" as="r" hint-placeholder-count="4">
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:center">
+                <div style="width:64px;height:64px;border-radius:{{ r.value }};background:var(--chip,rgba(255,255,255,0.07));border:1px solid var(--stroke,rgba(255,255,255,0.14))"></div>
+                <div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--dim,#A79ABF)">{{ r.value }}</div>
+                <div style="font-size:11px;font-weight:700">{{ r.name }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:13px;color:var(--dim,#A79ABF);line-height:1.5;text-wrap:pretty">Стекло: фон белый 6–8% (тёмная тема) или 66% (светлая), blur 18–20px, обводка 1px, тень 0 24px 60px. Тапабельная зона — не меньше 48px.</div>
+        </div>
+
+        <div style="padding:24px;border-radius:26px;background:var(--glass,rgba(255,255,255,0.08));border:1px solid var(--stroke,rgba(255,255,255,0.14));display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:800;color:var(--dim,#A79ABF)">Аватары персонажей</div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap">
+            <sc-for list="{{ chars }}" as="c" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
+                <div style="width:84px;height:84px;border-radius:50%;background:radial-gradient(70% 70% at 32% 26%, rgba(255,255,255,0.55) 0%, transparent 60%), linear-gradient(150deg,{{ c.accent }},rgba(255,255,255,0.12));display:flex;align-items:center;justify-content:center;font-family:Unbounded,sans-serif;font-weight:800;font-size:32px;color:#fff">{{ c.letter }}</div>
+                <div style="font-size:13px;font-weight:700">{{ c.name }}</div>
+                <div style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--dim,#A79ABF)">{{ c.accent }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:13px;color:var(--dim,#A79ABF);line-height:1.5;text-wrap:pretty">Аватар — круг с мягким градиентом акцента и бликом сверху слева, монограмма Unbounded 800. Под финальную вёрстку сюда встают иллюстрации-портреты в той же круглой маске.</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1240,&quot;height&quot;:1500},&quot;showTeacher&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Состав&quot;},&quot;showTokens&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Состав&quot;}}">
+class Component extends DCLogic {
+  state = {
+    theme: null, screen: 'start', code: '', codeError: '', charId: 0,
+    messages: [], typing: false, input: '', found: [], showDossier: false,
+    teamDone: [2, 1, 3]
+  };
+
+  get chars() {
+    return [
+      {
+        id: 0, code: '101', letter: 'Е', name: 'Елена', meta: '40 лет · команда 1',
+        accent: '#A78BFA', soft: 'rgba(167,139,250,0.5)',
+        hint: 'Через неделю всё изменится, а я совсем не знаю, как теперь выглядеть',
+        team: 'Команда 1',
+        problem: 'Елене нужен деловой образ для выхода из декрета: лаконичный силуэт, который работает с изменившейся фигурой, и стрижка, которая укладывается за 10 минут.',
+        greet: 'Здравствуйте. Мне посоветовали к вам зайти… честно, я немного растеряна.',
+        evasive: [
+          'Хм, даже не знаю, что ответить. Это как-то важно?',
+          'Не думала об этом. Давайте лучше о деле.',
+          'Простите, я не совсем поняла вопрос.'
+        ],
+        facts: [
+          { label: 'Повод', text: 'Через неделю выходит из декрета на новую работу', reply: 'Я три года дома с детьми, а через неделю выхожу на новую работу. Офис, коллеги, всё сразу.', keys: ['повод', 'случ', 'событ', 'зачем', 'причин', 'работ', 'декрет', 'привел', 'привёл', 'пришл', 'нужно', 'хотите'] },
+          { label: 'Фигура', text: 'Набрала около 12 кг, прежний гардероб не подходит', reply: 'За это время я поправилась килограммов на двенадцать. Старые вещи просто не застёгиваются, а новые покупать наугад боюсь.', keys: ['фигур', 'вес', 'размер', 'одежд', 'одева', 'оденет', 'гардероб', 'поправ', 'тело', 'вещи', 'носите', 'силуэт'] },
+          { label: 'Волосы', text: 'Три года стриглась сама, на укладку есть 10 минут утром', reply: 'Волосы три года подстригала сама у зеркала. Длина есть, а формы никакой. И утром у меня минут десять, не больше.', keys: ['волос', 'стриж', 'причес', 'причёс', 'укладк', 'длин', 'салон', 'красит', 'окраш', 'цвет волос'] },
+          { label: 'Страх', text: 'Боится выглядеть строго и старше своих лет', reply: 'Только не строгий костюм, пожалуйста. Я боюсь выглядеть на десять лет старше. Хочется оставаться собой.', keys: ['боит', 'боис', 'боюс', 'боял', 'страх', 'не хоч', 'нравится', 'нравятся', 'стиль', 'привыч', 'ощущ', 'чувств', 'важно', 'дети', 'детей', 'время', 'бюджет'] }
+        ],
+        tasks: ['Деловой капсульный образ: 3 комплекта на неделю', 'Стрижка с формой, которая держится без укладки', 'Дневной макияж за 7 минут']
+      },
+      {
+        id: 1, code: '202', letter: 'К', name: 'Кристина', meta: '18 лет · команда 2',
+        accent: '#FF8A6B', soft: 'rgba(255,138,107,0.5)',
+        hint: 'Мне говорят, что я выгляжу на пятнадцать. А мне на работу устраиваться',
+        team: 'Команда 2',
+        problem: 'Кристине нужен образ, который читается как взрослый и профессиональный, но остаётся молодым: восстановление волос после домашнего окрашивания и мягкий выход из чёрного цвета.',
+        greet: 'Привет! Мне нужно что-то сделать с собой, только я сама не понимаю что.',
+        evasive: [
+          'Ой, не знаю. А это вообще на что-то влияет?',
+          'Ну… обычно. Как у всех, наверное.',
+          'Не поняла, если честно. Спросите иначе?'
+        ],
+        facts: [
+          { label: 'Повод', text: 'Выпускной колледжа и первое собеседование в студию', reply: 'У меня через месяц выпускной, а сразу после — собеседование в студию, куда я очень хочу попасть.', keys: ['повод', 'случ', 'событ', 'зачем', 'причин', 'работ', 'учеб', 'выпускн', 'собеседов', 'пришл', 'нужно', 'хотите'] },
+          { label: 'Волосы', text: 'Два года красила дома в чёрный, отрастает своё, концы сухие', reply: 'Я два года красила себя дома в чёрный. Сейчас отрастает своё, русое, и концы совсем сухие.', keys: ['волос', 'красит', 'окраш', 'цвет', 'стриж', 'причес', 'причёс', 'концы', 'длин', 'уход'] },
+          { label: 'Самоощущение', text: 'Считают младше возраста, хочет выглядеть взрослее', reply: 'Меня постоянно принимают за школьницу. Хочу, чтобы меня воспринимали всерьёз, но не превратиться в тётю.', keys: ['возраст', 'взросл', 'младш', 'воспринима', 'ощущ', 'чувств', 'нравится', 'хочешь', 'хотите выглядеть', 'образ', 'впечатл'] },
+          { label: 'Ограничения', text: 'Бюджет студентки, любит яркое, но студия требует опрятности', reply: 'Денег немного, я студентка. И я люблю яркое, а в студии просят выглядеть аккуратно. Как это совместить?', keys: ['бюджет', 'деньг', 'стоим', 'огранич', 'ярк', 'люб', 'носи', 'одева', 'одежд', 'стиль', 'дресс', 'требован', 'не хоч', 'боит', 'боис', 'боюс', 'страх'] }
+        ],
+        tasks: ['Образ для собеседования: аккуратно, но с характером', 'План выхода из чёрного цвета и восстановления концов', 'Два макияжа: выпускной и рабочий']
+      },
+      {
+        id: 2, code: '303', letter: 'М', name: 'Марина', meta: '55 лет · команда 3',
+        accent: '#5FD3C4', soft: 'rgba(95,211,196,0.45)',
+        hint: 'Двадцать лет одна и та же причёска. Вроде пора, а страшно',
+        team: 'Команда 3',
+        problem: 'Марине нужен обновлённый образ к юбилею: работа с сединой вместо плоского домашнего тона, мягкое обновление формы без резкой длины и цвета, которые идут ей на фото.',
+        greet: 'Добрый день. Я редко хожу в салон, обычно всё делаю сама.',
+        evasive: [
+          'Ой, это вы у молодых спрашивайте. Мне бы попроще.',
+          'Не знаю, никогда об этом не задумывалась.',
+          'Что-то я вас не поняла.'
+        ],
+        facts: [
+          { label: 'Повод', text: 'Юбилей 55 лет, собирается вся семья', reply: 'У меня юбилей через три недели. Соберётся вся семья, приедут дети из другого города.', keys: ['повод', 'случ', 'событ', 'зачем', 'причин', 'юбилей', 'праздн', 'пришл', 'нужно', 'хотите'] },
+          { label: 'Седина', text: 'Около 30% седины, красит дома одним тоном', reply: 'Седины уже прилично, треть где-то. Крашу дома одним тоном, получается плоско и как-то тускло.', keys: ['волос', 'сед', 'красит', 'окраш', 'цвет', 'тон', 'уход', 'состоян'] },
+          { label: 'Привычка', text: 'Одна стрижка 20 лет, боится короткой длины', reply: 'Стрижка у меня одна и та же лет двадцать. Короче — ни за что, я себя такой не представляю.', keys: ['стриж', 'причес', 'причёс', 'длин', 'коротк', 'измен', 'поменя', 'привыч', 'боит', 'боис', 'боюс', 'боял', 'страх', 'не хоч'] },
+          { label: 'Образ', text: 'Много фото на празднике, не знает, какие цвета ей идут', reply: 'Будет много фотографий. А я не понимаю, какие цвета мне идут — покупаю всё тёмное на всякий случай.', keys: ['цвета', 'одежд', 'одева', 'гардероб', 'фото', 'образ', 'стиль', 'носи', 'идут', 'макияж', 'внешн'] }
+        ],
+        tasks: ['Праздничный образ к юбилею с учётом фотосъёмки', 'Работа с сединой: тон и блики вместо плоского цвета', 'Обновление формы стрижки без потери длины']
+      }
+    ];
+  }
+
+  componentDidMount() {
+    const saved = localStorage.getItem('bc-theme');
+    this.setState({ theme: saved === 'light' ? 'light' : 'dark' });
+  }
+
+  componentDidUpdate(_, prev) {
+    if (prev.messages !== this.state.messages || prev.typing !== this.state.typing) {
+      const el = this.endEl;
+      if (el && el.parentNode) el.parentNode.scrollTop = el.parentNode.scrollHeight;
+    }
+  }
+
+  get char() { return this.chars[this.state.charId]; }
+
+  setTheme = () => {
+    const next = this.state.theme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('bc-theme', next);
+    this.setState({ theme: next });
+  };
+
+  openChar = (id) => {
+    const c = this.chars[id];
+    this.setState({ charId: id, screen: 'card', found: [], showDossier: false, input: '', codeError: '', messages: [{ who: 'them', text: c.greet }] });
+  };
+
+  submitCode = () => {
+    const c = this.chars.find(x => x.code === this.state.code.trim());
+    if (c) this.openChar(c.id);
+    else this.setState({ codeError: 'Код не найден. Проверьте карточку команды.' });
+  };
+
+  norm = (s) => s.toLowerCase().replace(/ё/g, 'е').replace(/[^а-яa-z0-9\s]/g, ' ');
+
+  send = () => {
+    const raw = this.state.input.trim();
+    if (!raw || this.state.typing) return;
+    const q = this.norm(raw);
+    const c = this.char;
+    const idx = c.facts.findIndex((f, i) => !this.state.found.includes(i) && f.keys.some(k => q.includes(this.norm(k))));
+    this.setState(s => ({ messages: [...s.messages, { who: 'me', text: raw }], input: '', typing: true }));
+    clearTimeout(this._t);
+    this._t = setTimeout(() => {
+      if (idx >= 0) {
+        const f = c.facts[idx];
+        this.setState(s => {
+          const found = [...s.found, idx];
+          const msgs = [...s.messages, { who: 'them', text: f.reply, hit: true }, { who: 'sys', text: 'Факт раскрыт: ' + f.label }];
+          if (found.length === c.facts.length) msgs.push({ who: 'them', text: 'Кажется, я всё рассказала. Что скажете?' });
+          return { typing: false, found, messages: msgs, showDossier: found.length === c.facts.length ? true : s.showDossier };
+        });
+      } else {
+        const e = c.evasive[Math.floor(Math.random() * c.evasive.length)];
+        this.setState(s => ({ typing: false, messages: [...s.messages, { who: 'them', text: e, miss: true }, { who: 'sys', text: 'Вопрос не попал. Спросите конкретнее — о поводе, волосах, одежде или о том, чего она боится.', miss: true }] }));
+      }
+    }, 1100);
+  };
+
+  renderVals() {
+    const s = this.state, c = this.char;
+    const theme = s.theme || 'dark';
+    const dark = theme === 'dark';
+    const total = c.facts.length;
+    const found = s.found.length;
+    const navDefs = [['Старт', 'start'], ['Клиент', 'card'], ['Чат', 'chat'], ['Итог', 'done'], ['Табло', 'teacher']];
+    const projected = [Math.max(s.teamDone[0], s.charId === 0 ? found : s.teamDone[0]), s.teamDone[1], s.teamDone[2]];
+    projected[s.charId] = Math.max(projected[s.charId], found);
+
+    return {
+      theme, accent: c.accent, accentSoft: c.soft,
+      themeLabel: dark ? 'Светлая тема' : 'Тёмная тема',
+      toggleTheme: this.setTheme,
+      showTeacher: this.props.showTeacher ?? true,
+      showTokens: this.props.showTokens ?? true,
+      nav: navDefs.map(([label, key]) => ({
+        label, bg: s.screen === key ? 'var(--ink, #F7F3FB)' : 'transparent',
+        fg: s.screen === key ? 'var(--bg, #0E0B14)' : 'var(--dim, #A79ABF)',
+        go: () => { if (key !== 'start' && !s.messages.length) this.openChar(s.charId); this.setState({ screen: key }); }
+      })),
+      isStart: s.screen === 'start', isCard: s.screen === 'card', isChat: s.screen === 'chat',
+      isDone: s.screen === 'done', isTeacher: s.screen === 'teacher',
+      code: s.code, codeError: s.codeError,
+      onCode: (e) => this.setState({ code: e.target.value, codeError: '' }),
+      submitCode: this.submitCode,
+      quickCodes: this.chars.map(x => ({ label: x.code + ' · ' + x.name, go: () => this.setState({ code: x.code, codeError: '' }) })),
+      char: c, chars: this.chars,
+      toStart: () => this.setState({ screen: 'start' }),
+      toCard: () => this.setState({ screen: 'card' }),
+      toChat: () => this.setState({ screen: 'chat' }),
+      toDone: () => this.setState({ screen: 'done' }),
+      restart: () => this.setState({ screen: 'start', code: '', found: [], messages: [], input: '' }),
+      statusLine: s.typing ? 'печатает…' : 'в сети',
+      typing: s.typing, input: s.input,
+      onInput: (e) => this.setState({ input: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter') this.send(); },
+      send: this.send,
+      endRef: (el) => { this.endEl = el; },
+      messages: s.messages.map(m => {
+        if (m.who === 'sys') return {
+          just: 'center', text: m.text, radius: '14px', weight: 600,
+          bg: 'transparent', border: 'transparent',
+          color: m.miss ? '#FF7E9B' : 'var(--dim, #A79ABF)'
+        };
+        if (m.who === 'me') return {
+          just: 'flex-end', text: m.text, radius: '22px 22px 8px 22px', weight: 600,
+          bg: 'var(--accent, #A78BFA)', color: '#fff', border: 'transparent'
+        };
+        return {
+          just: 'flex-start', text: m.text, radius: '22px 22px 22px 8px', weight: 500,
+          bg: 'var(--bubble-them, rgba(255,255,255,0.09))', color: 'var(--ink, #F7F3FB)',
+          border: m.hit ? 'var(--accent, #A78BFA)' : 'transparent'
+        };
+      }),
+      chips: [
+        'Что у вас случилось?', 'Что вас беспокоит в волосах?',
+        'Как вы обычно одеваетесь?', 'Чего вы боитесь?', 'Какой у вас бюджет?'
+      ].map(label => ({ label, go: () => this.setState({ input: label }) })),
+      foundCount: found, totalFacts: total,
+      progressPct: Math.round((found / total) * 100) + '%',
+      progressLabel: found === total ? 'готово' : 'продолжайте',
+      allFound: found === total,
+      showDossier: s.showDossier,
+      toggleDossier: () => this.setState(st => ({ showDossier: !st.showDossier })),
+      facts: c.facts.map((f, i) => {
+        const on = s.found.includes(i);
+        return {
+          num: i + 1, label: on ? f.label : 'Не раскрыто', title: f.label, text: f.text,
+          display: on ? f.text : '• • • • • • • • • •',
+          opacity: on ? 1 : 0.45, weight: on ? 600 : 500,
+          color: on ? 'var(--ink, #F7F3FB)' : 'var(--dim, #A79ABF)',
+          bg: on ? 'var(--chip, rgba(255,255,255,0.07))' : 'transparent',
+          border: on ? 'var(--accent, #A78BFA)' : 'var(--stroke, rgba(255,255,255,0.14))'
+        };
+      }),
+      teams: this.chars.map((x, i) => {
+        const d = Math.min(projected[i], 4);
+        return {
+          team: x.team, letter: x.letter, client: x.name + ', ' + x.meta.split(' · ')[0],
+          accent: x.accent, done: d, score: d + ' / 4', pct: (d / 4 * 100) + '%',
+          status: d === 4 ? 'Проблема сформулирована' : 'Идёт консультация',
+          tags: x.facts.map((f, j) => ({
+            label: f.label,
+            bg: j < d ? x.accent : 'var(--chip, rgba(255,255,255,0.07))',
+            color: j < d ? '#1a1024' : 'var(--dim, #A79ABF)'
+          }))
+        };
+      }),
+      tick: () => this.setState(st => ({ teamDone: st.teamDone.map(v => Math.min(4, v + (Math.random() > 0.45 ? 1 : 0))) })),
+      swatches: dark ? [
+        { name: 'Фон', value: '#0E0B14' }, { name: 'Поверхность', value: '#16101F' },
+        { name: 'Текст', value: '#F7F3FB' }, { name: 'Вторичный текст', value: '#A79ABF' },
+        { name: 'Неон · акцент действия', value: '#FF4FA3' },
+        { name: 'Елена · лавандовый', value: '#A78BFA' },
+        { name: 'Кристина · персиковый', value: '#FF8A6B' },
+        { name: 'Марина · мятный', value: '#5FD3C4' }
+      ] : [
+        { name: 'Фон', value: '#F4EFF7' }, { name: 'Поверхность', value: '#FFFFFF' },
+        { name: 'Текст', value: '#241B33' }, { name: 'Вторичный текст', value: '#6E6386' },
+        { name: 'Акцент действия', value: '#D93F93' },
+        { name: 'Елена · лавандовый', value: '#A78BFA' },
+        { name: 'Кристина · персиковый', value: '#FF8A6B' },
+        { name: 'Марина · мятный', value: '#5FD3C4' }
+      ],
+      radii: [
+        { name: 'chip', value: '999px' }, { name: 'card', value: '26px' },
+        { name: 'input', value: '20px' }, { name: 'sheet', value: '42px' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
