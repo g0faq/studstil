@@ -16,6 +16,7 @@
 <body>
 <div class="app" id="app">
   <div class="glow"></div>
+  <div class="timer-chip hidden" id="timer" aria-live="off"><span id="timer-val">10:00</span></div>
   <div class="blobs" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="grain" aria-hidden="true"></div>
 
@@ -90,6 +91,7 @@
         <div class="display" style="font-weight:600;font-size:17px" data-f="name"></div>
         <div style="font-size:12px;color:var(--accent);font-weight:600" id="status">в сети</div>
       </div>
+      <button class="pill" id="hint-btn" type="button">Подсказка</button>
       <button class="pill" id="dossier-btn" type="button" aria-expanded="false">Досье</button>
     </div>
     <div class="progress glass">
@@ -102,6 +104,7 @@
     </div>
     <div class="msgs" id="msgs" aria-live="polite"></div>
     <div class="finish-wrap hidden" id="finish-wrap"><button class="btn-main btn-grad" data-go="done" type="button" style="font-size:16px;padding:18px;border-radius:22px">Сформулировать проблему</button></div>
+    <div class="solve-link"><button class="ghost" id="to-solve-chat" type="button">Перейти к разбору клиента →</button></div>
     <div class="chips" id="chips"></div>
     <form class="composer" id="composer">
       <input id="q" class="glass" placeholder="Задайте вопрос клиентке…" autocomplete="off" maxlength="500" aria-label="Вопрос клиентке">
@@ -127,7 +130,51 @@
         <div id="tasks" style="display:flex;flex-direction:column;gap:10px"></div>
         <div style="font-size:13px;opacity:.85;padding-top:4px" id="task-time"></div>
       </div>
+      <button class="btn-main btn-grad" id="to-solve" type="button" style="font-size:16px;padding:18px;border-radius:22px">Предложить решение</button>
       <button class="ghost" id="restart-btn" type="button">Вернуться к началу</button>
+    </div>
+  </section>
+
+  <!-- Решение -->
+  <section class="screen hidden" id="solve">
+    <div class="bar">
+      <button class="icon-btn" id="solve-back" type="button" aria-label="Вернуться к вопросам">←</button>
+      <div class="caps dim" style="font-size:12px;letter-spacing:.16em">Решение для клиентки</div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="solve-body">
+      <div class="solve-client">
+        <div class="avatar" data-f="letter" style="width:104px;height:104px;font-size:40px"></div>
+        <div>
+          <div class="display" style="font-weight:700;font-size:22px" data-f="name"></div>
+          <div class="dim" style="font-size:13px" id="solve-problem"></div>
+        </div>
+      </div>
+      <label class="caps dim" for="solution" style="font-size:11px;letter-spacing:.16em">Что вы предлагаете</label>
+      <textarea id="solution" placeholder="Опишите своими словами: какую стрижку и цвет, какой макияж, какую одежду и почему это подходит именно ей." maxlength="4000"></textarea>
+      <div class="solve-hint dim" id="solve-count">0 символов · нужно хотя бы 40</div>
+      <div class="err" id="solve-err"></div>
+    </div>
+    <button class="btn-main btn-grad" id="send-solution" type="button">Отправить на оценку</button>
+  </section>
+
+  <!-- Оценка -->
+  <section class="screen hidden" id="score">
+    <div class="done-head">
+      <div class="score-ring" id="score-ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="bg" cx="60" cy="60" r="52"/>
+          <circle class="val" cx="60" cy="60" r="52" pathLength="1"/>
+        </svg>
+        <div class="score-num"><b id="score-num">0</b><span>из 10</span></div>
+      </div>
+      <div class="display" style="font-weight:800;font-size:26px" id="score-title">Решение принято</div>
+      <div class="dim" style="font-size:15px;line-height:1.45" id="score-verdict"></div>
+    </div>
+    <div class="done-body">
+      <div class="panel glass" id="score-strengths"></div>
+      <div class="panel glass" id="score-missed"></div>
+      <button class="ghost" id="score-back" type="button">Показать задание и досье</button>
     </div>
   </section>
 </div>

@@ -101,7 +101,7 @@ const redisStore = {
     return raw ? JSON.parse(raw) : null;
   },
   async startSession(id, scenarioId, label = null) {
-    const s = { chat_id: String(id), scenario_id: scenarioId, revealed: [], finished: false, label, nudges: 0, last_call: 0, created_at: now() };
+    const s = { chat_id: String(id), scenario_id: scenarioId, revealed: [], finished: false, label, nudges: 0, last_call: 0, devices: [], created_at: now() };
     await redis(['SET', `s:${id}`, JSON.stringify(s)], ['SADD', 'active', String(id)], ['DEL', `h:${id}`]);
   },
   async updateSession(id, patch) {
@@ -157,7 +157,7 @@ async function getSqlite(file = config.dbPath) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       chat_id TEXT PRIMARY KEY, scenario_id TEXT, revealed TEXT NOT NULL DEFAULT '[]',
-      finished INTEGER NOT NULL DEFAULT 0, label TEXT, nudges INTEGER NOT NULL DEFAULT 0, last_call INTEGER NOT NULL DEFAULT 0,
+      finished INTEGER NOT NULL DEFAULT 0, label TEXT, nudges INTEGER NOT NULL DEFAULT 0, last_call INTEGER NOT NULL DEFAULT 0, devices TEXT NOT NULL DEFAULT '[]', solution TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS messages (
@@ -171,26 +171,30 @@ async function getSqlite(file = config.dbPath) {
   for (const col of ['nudges', 'last_call']) { // миграция старой базы
     try { db.exec(`ALTER TABLE sessions ADD COLUMN ${col} INTEGER NOT NULL DEFAULT 0`); } catch {}
   }
+  try { db.exec(`ALTER TABLE sessions ADD COLUMN devices TEXT NOT NULL DEFAULT '[]'`); } catch {}
+  try { db.exec('ALTER TABLE sessions ADD COLUMN solution TEXT'); } catch {}
   return db;
 }
 
-const parse = (row) => row && { ...row, revealed: JSON.parse(row.revealed), finished: !!row.finished };
+const parse = (row) => row && { ...row, revealed: JSON.parse(row.revealed), devices: JSON.parse(row.devices || '[]'),
+  solution: row.solution ? JSON.parse(row.solution) : null, finished: !!row.finished };
 
 const sqliteStore = {
   async getSession(id) {
     return parse((await getSqlite()).prepare('SELECT * FROM sessions WHERE chat_id = ?').get(String(id)));
   },
   async startSession(id, scenarioId, label = null) {
-    (await getSqlite()).prepare(`INSERT INTO sessions (chat_id, scenario_id, revealed, finished, label, nudges, last_call) VALUES (?, ?, '[]', 0, ?, 0, 0)
-      ON CONFLICT(chat_id) DO UPDATE SET scenario_id = excluded.scenario_id, revealed = '[]', finished = 0, nudges = 0, last_call = 0,
+    (await getSqlite()).prepare(`INSERT INTO sessions (chat_id, scenario_id, revealed, finished, label, nudges, last_call, devices) VALUES (?, ?, '[]', 0, ?, 0, 0, '[]')
+      ON CONFLICT(chat_id) DO UPDATE SET scenario_id = excluded.scenario_id, revealed = '[]', finished = 0, nudges = 0, last_call = 0, devices = '[]',
       label = excluded.label, created_at = datetime('now'), updated_at = datetime('now')`).run(String(id), scenarioId, label);
   },
   async updateSession(id, patch) {
     const cur = await this.getSession(id);
     if (!cur) return;
     const s = { ...cur, ...patch };
-    (await getSqlite()).prepare(`UPDATE sessions SET revealed = ?, finished = ?, nudges = ?, last_call = ?, updated_at = datetime('now') WHERE chat_id = ?`)
-      .run(JSON.stringify(s.revealed), s.finished ? 1 : 0, s.nudges || 0, s.last_call || 0, String(id));
+    (await getSqlite()).prepare(`UPDATE sessions SET revealed = ?, finished = ?, nudges = ?, last_call = ?, devices = ?, solution = ?, updated_at = datetime('now') WHERE chat_id = ?`)
+      .run(JSON.stringify(s.revealed), s.finished ? 1 : 0, s.nudges || 0, s.last_call || 0, JSON.stringify(s.devices || []),
+           s.solution ? JSON.stringify(s.solution) : null, String(id));
   },
   async resetSession(id) {
     const d = await getSqlite();

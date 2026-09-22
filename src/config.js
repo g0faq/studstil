@@ -11,10 +11,12 @@ export const config = {
   adminIds: (process.env.ADMIN_IDS || '').split(',').map((s) => s.trim()).filter(Boolean),
   historyLimit: num(process.env.HISTORY_LIMIT, 16),
   maxInputChars: num(process.env.MAX_INPUT_CHARS, 500),
-  rateLimitMs: num(process.env.RATE_LIMIT_MS, 2500),
+  rateLimitMs: num(process.env.RATE_LIMIT_MS, 1200),
   port: num(process.env.PORT, 8080),
   adminKey: process.env.ADMIN_KEY || '',
   webOrigins: (process.env.WEB_ORIGIN || '*').split(',').map((s) => s.trim()).filter(Boolean),
   serveStatic: process.env.SERVE_STATIC !== '0',
+  gameMinutes: num(process.env.GAME_MINUTES, 10),
+  answerSeconds: num(process.env.ANSWER_SECONDS, 60),
   dbPath: process.env.DB_PATH || 'data/bot.db',
 };

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Итоги игры · Beauty Case</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>try{var p=localStorage.getItem('bc-palette');if(p)document.documentElement.dataset.palette=p}catch(e){}</script>
+<style>
+  body { min-height: 100%; }
+  .wrap { min-height: 100dvh; padding: clamp(20px, 3vh, 44px) clamp(18px, 3vw, 56px) clamp(60px, 8vh, 90px);
+    display: flex; flex-direction: column; gap: clamp(16px, 2.4vh, 30px); }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  h1 { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(30px, 4.4vw, 72px); line-height: 1; letter-spacing: -0.04em; margin: 0; }
+  .subline { font-size: clamp(13px, 1.1vw, 20px); color: var(--dim); font-weight: 600; }
+
+  .podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(12px, 1.4vw, 26px); align-items: end; }
+  @media (max-width: 900px) { .podium { grid-template-columns: 1fr; } }
+  .p-card { --accent: #FF7A1A; position: relative; overflow: hidden; border-radius: clamp(20px, 2vw, 32px); padding: clamp(16px, 1.8vw, 30px);
+    display: flex; flex-direction: column; gap: clamp(8px, 1.2vh, 16px); animation: riseIn .6s var(--ease-out) both; animation-delay: calc(var(--i) * 140ms); }
+  .p-card::before { content: ''; position: absolute; top: -14%; right: -10%; width: 46%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); opacity: .26; filter: blur(44px); }
+  .p-card.first { box-shadow: 0 0 0 2px var(--accent), 0 24px 70px color-mix(in srgb, var(--accent) 34%, transparent); }
+  .rank { display: inline-flex; align-items: center; gap: .5em; font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(13px, 1.1vw, 20px); color: var(--accent); }
+  .rank svg { width: 1.5em; height: 1.5em; }
+  .p-top { display: flex; align-items: center; gap: clamp(10px, 1vw, 18px); position: relative; }
+  .p-name { font-family: Unbounded, sans-serif; font-weight: 700; font-size: clamp(19px, 1.9vw, 34px); letter-spacing: -.02em; }
+  .p-body { display: grid; grid-template-columns: minmax(0, 40%) 1fr; gap: clamp(10px, 1.2vw, 22px); align-items: center; }
+  .vessel { color: var(--accent); display: flex; justify-content: center; }
+  .flacon { width: 100%; height: auto; max-height: 30vh; }
+  .score { display: flex; align-items: baseline; gap: 6px; line-height: .82; }
+  .big { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(42px, 5.6vw, 104px); letter-spacing: -.05em; color: var(--accent); }
+  .score-note { font-family: Unbounded, sans-serif; font-weight: 600; font-size: clamp(16px, 1.5vw, 30px); color: var(--dim); }
+  .caps2 { font-size: clamp(10px, .8vw, 15px); letter-spacing: .16em; text-transform: uppercase; font-weight: 800; color: var(--dim); }
+  .stats { display: flex; gap: clamp(10px, 1.2vw, 22px); flex-wrap: wrap; padding-top: 4px; }
+  .stat b { display: block; font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(18px, 1.7vw, 32px); line-height: 1; }
+  .stat span { font-size: clamp(10px, .82vw, 15px); color: var(--dim); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  .timeline { display: flex; flex-direction: column; gap: 6px; }
+  .tl { display: flex; align-items: center; gap: 10px; font-size: clamp(12px, 1vw, 19px); }
+  .tl .dot { flex: none; width: 1.5em; height: 1.5em; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--chip); color: var(--dim); font-size: .8em; font-weight: 800; }
+  .tl.on .dot { background: var(--accent); color: #140A02; }
+  .tl.on .lbl { font-weight: 700; }
+  .tl .lbl { flex: 1; min-width: 0; }
+  .tl .at { color: var(--dim); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tl.off .lbl { color: var(--dim); }
+  .tl.bonus .dot { background: transparent; border: 1px dashed var(--accent); color: var(--accent); }
+  .problem { font-size: clamp(12px, 1vw, 18px); color: var(--dim); line-height: 1.45; border-top: 1px solid var(--stroke); padding-top: 10px; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .empty { text-align: center; color: var(--dim); padding: 12vh 0; }
+</style>
+</head>
+<body>
+<div class="blobs" aria-hidden="true" style="position:fixed"><i></i><i></i><i></i></div>
+<div class="grain" aria-hidden="true" style="position:fixed"></div>
+<canvas class="confetti" id="confetti" aria-hidden="true" style="position:fixed;inset:0;width:100%;height:100%;z-index:3"></canvas>
+
+<div class="wrap" style="position:relative;z-index:4">
+  <div class="head">
+    <div>
+      <h1>Итоги игры</h1>
+      <div class="subline" id="subline"></div>
+    </div>
+    <div class="subline" id="winner"></div>
+  </div>
+  <div class="podium" id="podium"></div>
+  <div class="foot">
+    <span class="subline" id="hint">Кнопка «В начало» сбросит игру: коды, прогресс и названия команд.</span>
+    <button class="pill" id="restart" type="button">В начало</button>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="results.js"></script>
+</body>
+</html>

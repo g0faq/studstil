@@ -8,9 +8,13 @@
   };
 
   let sessionId = store.get('bc-session');
+  // Свой id устройства: сессия общая на команду, а устройств может быть несколько
+  let deviceId = store.get('bc-device');
+  if (!deviceId) { deviceId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)); store.set('bc-device', deviceId); }
+  let syncTimer = null;
+  let tick = null, tBase = null; // отсчёт времени: сервер — источник истины
   let state = null;
   let busy = false;
-  let idleTimer = null;
   let waitTimer = null;
   let entering = 0; // метка последнего входа: ответ старого запроса не должен перетирать новый
   let shown = 0; // сколько сообщений уже анимировано (остальные не переигрываем)
@@ -49,12 +53,25 @@
 
   // --- Навигация ---
   function go(screen) {
-    for (const s of document.querySelectorAll('.screen')) s.classList.toggle('hidden', s.id !== screen);
-    if (screen === 'chat') { scrollDown(); armIdle(); setTimeout(() => $('#q').focus({ preventScroll: true }), 50); } else clearTimeout(idleTimer);
+    for (const el of document.querySelectorAll('.screen')) el.classList.toggle('hidden', el.id !== screen);
     clearInterval(waitTimer);
-    if (screen === 'wait') waitTimer = setInterval(checkStart, 3000);
+    clearInterval(syncTimer);
+    if (screen === 'chat') {
+      scrollDown();
+      setTimeout(() => $('#q').focus({ preventScroll: true }), 50);
+      syncTimer = setInterval(syncTeam, 2000); // сообщения с других устройств команды
+    }
+    if (screen === 'wait') waitTimer = setInterval(checkStart, 2500);
+    if (screen === 'solve' || screen === 'done' || screen === 'score') syncTimer = setInterval(syncTeam, 5000);
     if (screen === 'done') renderDone();
+    if (screen === 'solve') {
+      $('#solve-problem').textContent = state?.final?.problem || '';
+      countChars();
+      setTimeout(() => $('#solution').focus({ preventScroll: true }), 80);
+    }
+    if (screen === 'score') renderScore();
   }
+
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
 
   // --- Вход по коду ---
@@ -65,7 +82,7 @@
     $('#enter-btn').disabled = true; $('#code-err').textContent = '';
     const mark = ++entering;
     try {
-      const r = await api('/api/session', { code });
+      const r = await api('/api/session', { code, deviceId });
       if (mark !== entering) return; // пока ждали ответ, ввели другой код
       sessionId = r.sessionId; store.set('bc-session', sessionId);
       hits.clear(); extra.length = 0; shown = 0;
@@ -92,6 +109,8 @@
     const photo = (green && c.photo_green) || c.photo;
     for (const el of document.querySelectorAll('.avatar[data-f="letter"]')) { el.querySelector('img')?.remove(); if (photo) addPhoto(el, photo); }
     $('#wait-team').textContent = s.team || 'Ваша команда';
+    applyTimer(s.timer);
+    updateHintBtn();
     renderProgress(); renderMsgs(); renderChips();
   }
 
@@ -109,6 +128,21 @@
       if (r.state.phase !== 'lobby') { apply(r.state); go('card'); }
     } catch (e) { if (e.status === 404) resetToStart(); }
   }
+
+  // Подтягиваем сообщения, которые отправили одноклассники с других телефонов
+  async function syncTeam(force = false) {
+    if (!force && (busy || !sessionId || document.hidden)) return;
+    try {
+      const r = await api('/api/session?id=' + encodeURIComponent(sessionId));
+      if (!state || (r.state.rev === state.rev && r.state.timer?.stage === state.timer?.stage)) { if (r.state.timer) applyTimer(r.state.timer); return; }
+      const wasFinished = state.finished;
+      apply(r.state);
+      renderMsgs();
+      if (state.solution && !wasFinished) go('score');
+      else if (state.finished && !wasFinished) go('done');
+    } catch (e) { if (e.status === 404) resetToStart(); }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('#chat').classList.contains('hidden')) syncTeam(); });
 
   function renderProgress() {
     const { progress: p, revealed, finished } = state;
@@ -194,8 +228,8 @@
     e.preventDefault();
     const input = $('#q');
     const text = input.value.trim();
-    if (!text || busy || state.finished) return;
-    busy = true; input.value = ''; clearTimeout(idleTimer);
+    if (!text || busy) return;
+    busy = true; input.value = '';
     state.messages.push({ who: 'me', text });
     fresh = new Set();
     renderMsgs(true);
@@ -219,76 +253,130 @@
       extra.push({ after: state.messages.length - 1, text: err.message, err: true });
       renderMsgs();
       if (err.status === 404) return resetToStart();
-    } finally { busy = false; armIdle(); }
+    } finally { busy = false; }
   };
-  $('#q').addEventListener('input', armIdle);
 
-  // --- Подсказка, если команда зависла ---
-  function armIdle() {
-    clearTimeout(idleTimer);
-    if (!state || state.finished || $('#chat').classList.contains('hidden')) return;
-    idleTimer = setTimeout(async () => {
-      if (busy || $('#q').value.trim()) return armIdle();
-      try {
-        const r = await api('/api/nudge', { sessionId });
-        if (r.text) { state.messages.push({ who: 'them', text: r.text }); renderMsgs(); armIdle(); }
-      } catch {}
-    }, IDLE_MS);
+  // --- Решение команды и оценка ---
+  const countChars = () => {
+    const n = $('#solution').value.trim().length;
+    $('#solve-count').textContent = n < 40 ? `${n} символов · нужно хотя бы 40` : `${n} символов`;
+  };
+  $('#solution').addEventListener('input', () => { countChars(); $('#solve-err').textContent = ''; });
+  $('#to-solve').onclick = () => go(state?.solution ? 'score' : 'solve');
+  $('#score-back').onclick = () => go(state?.finished ? 'done' : 'chat');
+
+  $('#send-solution').onclick = async () => {
+    const text = $('#solution').value.trim();
+    if (text.length < 40) return ($('#solve-err').textContent = 'Опишите решение подробнее.');
+    const btn = $('#send-solution');
+    btn.disabled = true; btn.textContent = 'Проверяем…'; $('#solve-err').textContent = '';
+    try {
+      const r = await api('/api/solution', { sessionId, text });
+      apply(r.state); go('score');
+    } catch (e) { $('#solve-err').textContent = e.message; }
+    finally { btn.disabled = false; btn.textContent = 'Отправить на оценку'; }
+  };
+
+  function renderScore() {
+    const s = state?.solution;
+    if (!s) return go('solve');
+    $('#score-verdict').textContent = s.verdict;
+    $('#score-title').textContent = s.score >= 9 ? 'Отличная работа' : s.score >= 7 ? 'Хорошее решение' : s.score >= 5 ? 'Решение засчитано' : 'Есть над чем поработать';
+    const num = $('#score-num'), ring = document.querySelector('.score-ring .val');
+    if (reduced) { num.textContent = s.score; ring.style.strokeDashoffset = 1 - s.score / 10; }
+    else {
+      ring.style.strokeDashoffset = 1;
+      requestAnimationFrame(() => { ring.style.strokeDashoffset = 1 - s.score / 10; });
+      const t0 = performance.now();
+      (function f(t) {
+        const k = Math.min(1, (t - t0) / 1200), e = 1 - Math.pow(1 - k, 3);
+        num.textContent = Math.round(s.score * e);
+        if (k < 1) requestAnimationFrame(f);
+      })(t0);
+    }
+    fillPanel($('#score-strengths'), 'Сильные стороны', s.strengths, ICON.done);
+    fillPanel($('#score-missed'), 'Что доработать', s.missed, ICON.spark);
   }
 
-  // --- Искры из полосы прогресса при раскрытии факта ---
-  function burst(el) {
-    if (reduced || !el) return;
-    const r = el.getBoundingClientRect();
-    const x0 = r.left + r.width, y0 = r.top + r.height / 2;
-    const colors = ['var(--g1)', 'var(--g2)', 'var(--g3)', 'var(--accent)'];
-    for (let i = 0; i < 14; i++) {
-      const p = document.createElement('i'); p.className = 'particle';
-      const size = 4 + Math.random() * 6;
-      Object.assign(p.style, { left: x0 + 'px', top: y0 + 'px', width: size + 'px', height: size + 'px', background: colors[i % 4] });
-      document.body.append(p);
-      const a = Math.random() * Math.PI * 2, d = 30 + Math.random() * 60;
-      p.animate([
-        { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
-        { transform: `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d + 20}px)) scale(.3)`, opacity: 0 },
-      ], { duration: 700 + Math.random() * 300, easing: 'cubic-bezier(.22,1,.36,1)' }).onfinish = () => p.remove();
+  function fillPanel(box, title, items, icon) {
+    box.replaceChildren();
+    box.classList.toggle('hidden', !items?.length);
+    if (!items?.length) return;
+    const h = document.createElement('div'); h.className = 'caps'; h.style.color = 'var(--accent)'; h.textContent = title;
+    box.append(h);
+    for (const it of items) {
+      const row = document.createElement('div'); row.className = 'row';
+      row.innerHTML = icon + '<span style="font-size:14px;line-height:1.45"></span>';
+      row.querySelector('span').textContent = it;
+      box.append(row);
     }
   }
 
-  // --- Конфетти из «мазков» на экране итога (один раз) ---
-  function confetti() {
-    const cv = $('#confetti');
-    if (reduced || cv.dataset.done === sessionId) return;
-    cv.dataset.done = sessionId;
-    const ctx = cv.getContext('2d'), dpr = devicePixelRatio || 1;
-    const W = cv.width = cv.offsetWidth * dpr, H = cv.height = cv.offsetHeight * dpr;
-    const css = getComputedStyle($('#app'));
-    const cols = ['--g1', '--g2', '--g3', '--accent'].map((v) => css.getPropertyValue(v).trim() || '#FF7A1A');
-    const parts = Array.from({ length: 90 }, () => ({
-      x: W / 2 + (Math.random() - .5) * W * .3, y: H * .22,
-      vx: (Math.random() - .5) * 14 * dpr, vy: (-6 - Math.random() * 10) * dpr,
-      w: (6 + Math.random() * 12) * dpr, h: (3 + Math.random() * 4) * dpr,
-      r: Math.random() * 6, vr: (Math.random() - .5) * .3, c: cols[(Math.random() * cols.length) | 0], round: Math.random() < .35,
-    }));
-    const t0 = performance.now();
-    (function frame(t) {
-      ctx.clearRect(0, 0, W, H);
-      const life = (t - t0) / 2600;
-      for (const p of parts) {
-        p.vy += .35 * dpr; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
-        ctx.save(); ctx.globalAlpha = Math.max(0, 1 - life); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c;
-        if (p.round) { ctx.beginPath(); ctx.arc(0, 0, p.h, 0, 7); ctx.fill(); }
-        else { ctx.beginPath(); ctx.roundRect(-p.w / 2, -p.h / 2, p.w, p.h, p.h / 2); ctx.fill(); } // мазок с круглыми краями
-        ctx.restore();
-      }
-      if (life < 1) requestAnimationFrame(frame); else ctx.clearRect(0, 0, W, H);
-    })(t0);
+  // --- Подсказка по запросу команды ---
+  $('#hint-btn').onclick = async () => {
+    const btn = $('#hint-btn');
+    btn.disabled = true;
+    try {
+      const r = await api('/api/hint', { sessionId });
+      apply(r.state); // подсказка уже в диалоге, полученном с сервера
+      renderMsgs();
+    } catch (e) {
+      extra.push({ after: state.messages.length - 1, text: e.message, err: true });
+      renderMsgs();
+    } finally { btn.disabled = false; updateHintBtn(); }
+  };
+  const updateHintBtn = () => {
+    const left = state?.hints_left ?? 0;
+    $('#hint-btn').textContent = left ? `Подсказка · ${left}` : 'Подсказок нет';
+    $('#hint-btn').disabled = !left;
+  };
+  $('#to-solve-chat').onclick = () => go(state?.solution ? 'score' : 'solve');
+  $('#solve-back').onclick = () => go(state?.finished ? 'done' : 'chat');
+
+  // --- Таймер: считаем локально от последнего ответа сервера ---
+  function applyTimer(t) {
+    if (!t || t.stage === 'lobby' || t.stage === 'finished') { tBase = null; $('#timer').classList.add('hidden'); clearInterval(tick); return; }
+    tBase = { stage: t.stage, left: t.stage === 'play' ? t.left : t.left_answer, at: Date.now() };
+    $('#timer').classList.remove('hidden');
+    clearInterval(tick); paintTimer(); tick = setInterval(paintTimer, 1000);
+  }
+
+  function paintTimer() {
+    if (!tBase) return;
+    const left = Math.max(0, tBase.left - Math.floor((Date.now() - tBase.at) / 1000));
+    const chip = $('#timer');
+    $('#timer-val').textContent = (tBase.stage === 'answer' ? 'Ответ · ' : '') +
+      `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
+    chip.classList.toggle('warn', tBase.stage === 'play' && left <= 60);
+    chip.classList.toggle('answer', tBase.stage !== 'play');
+    if (left === 0) { clearInterval(tick); syncTeam(true); }
+    lockByStage(tBase.stage);
+  }
+
+  // Время вышло: чат и карточка закрываются, остаётся только финальный ответ
+  function lockByStage(stage) {
+    const over = stage === 'over' || stage === 'finished';
+    const answerOnly = stage === 'answer' || over;
+    $('#composer').classList.toggle('hidden', answerOnly || !!state?.finished);
+    $('#chips').classList.toggle('hidden', answerOnly || !!state?.finished);
+    $('#hint-btn').classList.toggle('hidden', answerOnly);
+    document.querySelector('.solve-client')?.classList.toggle('hidden', answerOnly);
+    $('#solve-back').classList.toggle('hidden', answerOnly);
+    if (answerOnly && !state?.solution && !$('#solve').classList.contains('hidden') === false) {
+      const visible = [...document.querySelectorAll('.screen:not(.hidden)')].map((s) => s.id)[0];
+      if (['chat', 'card', 'done'].includes(visible)) go('solve');
+    }
+    if (over) {
+      $('#solution').disabled = true;
+      $('#send-solution').disabled = true;
+      if (!state?.solution) $('#solve-err').textContent = 'Время на ответ закончилось.';
+    }
   }
 
   function resetToStart() {
     store.set('bc-session', null); sessionId = null; state = null; hits.clear(); extra.length = 0; shown = 0; fresh = new Set();
     $('#app').style.removeProperty('--accent'); $('#app').style.removeProperty('--accent-soft');
-    clearInterval(waitTimer); $('#code').value = ''; go('start');
+    clearInterval(waitTimer); clearInterval(syncTimer); $('#code').value = ''; go('start');
   }
   $('#restart-btn').onclick = resetToStart;
   $('#wait-exit').onclick = resetToStart;
@@ -304,7 +392,7 @@
     api('/api/session?id=' + encodeURIComponent(restoring))
       .then((r) => {
         if (entering || sessionId !== restoring) return; // уже вошли по новому коду — старую сессию игнорируем
-        apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : r.state.finished ? 'done' : 'chat');
+        apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : r.state.solution ? 'score' : r.state.finished ? 'done' : 'chat');
       })
       .catch(() => store.set('bc-session', null));
   }

@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { config } from '../config.js';
-import { RESPONSE_SCHEMA } from './prompt.js';
+import { RESPONSE_SCHEMA, JUDGE_SCHEMA } from './prompt.js';
 
 let client;
 const getClient = () => {
@@ -13,8 +13,18 @@ const supportsTemperature = (m) => !/^(gpt-5|o\d)/i.test(m);
 
 /** messages: [{role, content}] → { reply, revealed_fact_ids } */
 export async function callPersona(messages) {
+  const data = await callModel(messages, RESPONSE_SCHEMA, 600);
+  return { reply: String(data.reply || '').trim(), revealed_fact_ids: Array.isArray(data.revealed_fact_ids) ? data.revealed_fact_ids : [] };
+}
+
+/** Оценка решения команды → { score, verdict, strengths, missed } */
+export async function callJudge(messages) {
+  return callModel(messages, JUDGE_SCHEMA, 900);
+}
+
+async function callModel(messages, schema, maxTokens) {
   const model = config.openaiModel;
-  const req = { model, messages, response_format: { type: 'json_schema', json_schema: RESPONSE_SCHEMA }, max_completion_tokens: 600 };
+  const req = { model, messages, response_format: { type: 'json_schema', json_schema: schema }, max_completion_tokens: maxTokens };
   let res;
   try {
     res = await getClient().chat.completions.create(supportsTemperature(model) ? { ...req, temperature: config.temperature } : req);
@@ -23,7 +33,6 @@ export async function callPersona(messages) {
     res = await getClient().chat.completions.create(req); // модель не принимает temperature
   }
   const msg = res.choices[0]?.message;
-  if (msg?.refusal) return { reply: '', revealed_fact_ids: [], refusal: msg.refusal };
-  const data = JSON.parse(msg?.content || '{}');
-  return { reply: String(data.reply || '').trim(), revealed_fact_ids: Array.isArray(data.revealed_fact_ids) ? data.revealed_fact_ids : [] };
+  if (msg?.refusal) throw new Error('Модель отказалась отвечать: ' + msg.refusal);
+  return JSON.parse(msg?.content || '{}');
 }

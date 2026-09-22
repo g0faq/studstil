@@ -13,7 +13,8 @@
     "qr": "node scripts/qr.js",
     "check": "node scripts/check-scenarios.js",
     "set-domain": "node scripts/set-domain.js",
-    "publish-site": "bash scripts/publish-site.sh"
+    "publish-site": "bash scripts/publish-site.sh",
+    "test": "for f in test/smoke*.mjs; do echo \"— $f\"; node $f || exit 1; done"
   },
   "dependencies": {
     "dotenv": "^16.4.0",

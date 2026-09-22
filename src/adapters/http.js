@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
 import { store } from '../core/db.js';
-import { enterCode, handleMessage, publicState, nextTrigger, boardState, getGame, createGame, startGame, endGame } from '../core/engine.js';
+import { enterCode, handleMessage, publicState, nextTrigger, boardState, getGame, createGame, startGame, endGame, finishGame, resultsState, submitSolution, stageOf } from '../core/engine.js';
 
 const STATIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../docs');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
@@ -18,6 +18,12 @@ const ERR_TEXT = {
   empty: 'Напишите вопрос.',
   no_session: 'Сессия не найдена, введите код заново.',
   not_started: 'Игра ещё не началась — дождитесь преподавателя.',
+  game_over: 'Игра завершена. Спасибо за работу!',
+  not_finished: 'Сначала выясните запрос клиентки.',
+  too_short: 'Опишите решение подробнее — хотя бы несколько предложений.',
+  time_up: 'Время вышло — переходите к финальному ответу.',
+  time_over: 'Время на ответ закончилось.',
+  no_hints: 'Подсказки закончились.',
 };
 
 const ipHits = new Map();
@@ -51,7 +57,7 @@ function readBody(req) {
   });
 }
 
-const sid = (id) => (typeof id === 'string' && /^[a-f0-9-]{36}$/.test(id) ? `web:${id}` : null);
+const sid = (id) => (typeof id === 'string' && /^team:[a-z0-9_-]{1,40}$/i.test(id) ? id : null);
 const isAdmin = (req, url) => {
   const key = req.headers['x-admin-key'] || url.searchParams.get('key');
   return !!config.adminKey && typeof key === 'string' && key.length === config.adminKey.length &&
@@ -85,11 +91,11 @@ async function route(req, res) {
 
   if (r === 'POST /api/session') {
     if (ipLimited(ip)) return send(res, 429, { error: 'Слишком много попыток входа, подождите минуту.' });
-    const { code } = await readBody(req);
-    const id = crypto.randomUUID();
-    const out = await enterCode(sid(id), String(code || '').slice(0, 40));
+    const { code, deviceId } = await readBody(req);
+    const dev = typeof deviceId === 'string' ? deviceId.slice(0, 40) : null;
+    const out = await enterCode(String(code || '').slice(0, 40), dev);
     if (!out.ok) return send(res, 404, { error: 'Код не найден. Проверьте карточку команды.' });
-    return send(res, 200, { sessionId: id, state: await publicState(sid(id)) });
+    return send(res, 200, { sessionId: out.sessionId, state: await publicState(out.sessionId) });
   }
 
   if (r === 'GET /api/session') {
@@ -108,16 +114,28 @@ async function route(req, res) {
     return send(res, 200, { reply: out.reply, newly: state.revealed.filter((f) => out.newly_revealed.includes(f.id)), state });
   }
 
-  if (r === 'POST /api/nudge') {
+  if (r === 'POST /api/solution') {
+    const { sessionId, text } = await readBody(req);
+    const s = sid(sessionId);
+    if (!s) return send(res, 404, { error: ERR_TEXT.no_session });
+    const out = await submitSolution(s, text);
+    if (out.error) return send(res, out.error === 'no_session' ? 404 : 400, { error: ERR_TEXT[out.error] || out.error, code: out.error });
+    return send(res, 200, { solution: out.solution, already: !!out.already, state: await publicState(s) });
+  }
+
+  if (r === 'POST /api/hint') {
     const { sessionId } = await readBody(req);
     const s = sid(sessionId);
-    return send(res, 200, { text: s ? await nextTrigger(s) : null });
+    if (!s) return send(res, 404, { error: ERR_TEXT.no_session });
+    const out = await nextTrigger(s);
+    if (out.error) return send(res, 400, { error: ERR_TEXT[out.error] || out.error, code: out.error });
+    return send(res, 200, { ...out, state: await publicState(s) });
   }
 
   if (r === 'GET /api/board') {
     if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
     const game = await getGame();
-    return send(res, 200, { teams: await boardState(), phase: game?.phase || null, started_at: game?.started_at || null });
+    return send(res, 200, { teams: await boardState(), phase: game?.phase || null, started_at: game?.started_at || null, timer: stageOf(game) });
   }
 
   // --- Игра (админ-панель преподавателя) ---
@@ -136,6 +154,17 @@ async function route(req, res) {
     if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
     const game = await startGame();
     return game ? send(res, 200, { game }) : send(res, 400, { error: 'Игра ещё не создана' });
+  }
+
+  if (r === 'POST /api/admin/finish') {
+    if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
+    const game = await finishGame();
+    return game ? send(res, 200, { game }) : send(res, 400, { error: 'Игра не создана' });
+  }
+
+  if (r === 'GET /api/admin/results') {
+    if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
+    return send(res, 200, await resultsState());
   }
 
   if (r === 'POST /api/admin/end') {

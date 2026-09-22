@@ -1,8 +1,8 @@
 import { config } from '../config.js';
 import { store } from './db.js';
 import { getScenario, findByCode, loadScenarios } from './scenarios.js';
-import { buildSystemPrompt } from './prompt.js';
-import { callPersona } from './llm.js';
+import { buildSystemPrompt, buildJudgePrompt } from './prompt.js';
+import { callPersona, callJudge } from './llm.js';
 
 export function progressOf(scenario, revealed) {
   const req = scenario.facts.filter((f) => f.required);
@@ -18,12 +18,29 @@ export const finalOf = (sc) => ({
   message: sc.final_message, problem: sc.problem || '', tasks: sc.tasks || [sc.task], task_time: sc.task_time || '',
 });
 
-/** Привязка сессии к сценарию по коду команды (коды игры или коды из файлов сценариев). */
-export async function enterCode(sessionId, code) {
+/**
+ * Вход по коду. Сессия общая на всю команду: все устройства видят один чат.
+ * deviceId нужен только чтобы показать преподавателю, сколько устройств в команде.
+ */
+export async function enterCode(code, deviceId = null) {
   const found = await teamByCode(code);
   if (!found) return { ok: false };
   const { team } = found;
-  return { ok: true, ...(await startScenario(sessionId, team.scenario_id, team.name)) };
+  const sessionId = `team:${team.scenario_id}`;
+  const existing = await store.getSession(sessionId);
+  if (!existing) await startScenario(sessionId, team.scenario_id, team.name);
+  await addDevice(sessionId, deviceId);
+  return { ok: true, sessionId };
+}
+
+/** Учёт устройств команды (для строки «в игре · 3»). */
+async function addDevice(sessionId, deviceId) {
+  if (!deviceId) return;
+  const s = await store.getSession(sessionId);
+  if (!s) return;
+  const devices = Array.isArray(s.devices) ? s.devices : [];
+  if (devices.includes(deviceId) || devices.length >= 30) return;
+  await store.updateSession(sessionId, { devices: [...devices, deviceId] });
 }
 
 /** Прямой старт по id сценария (CLI/eval). */
@@ -58,6 +75,8 @@ export async function handleMessage(sessionId, text, { llm = callPersona } = {})
   if (session.finished) return { error: 'already_finished', reply: null, progress: state.progress, finished: true };
   const g = await getGame();
   if (g && g.phase === 'lobby') return { error: 'not_started', reply: null, progress: state.progress, finished: false };
+  if (g && g.phase === 'finished') return { error: 'game_over', reply: null, progress: state.progress, finished: false };
+  if (g && stageOf(g).stage !== 'play') return { error: 'time_up', reply: null, progress: state.progress, finished: false };
   text = String(text || '').trim();
   if (!text) return { error: 'empty', reply: null, progress: state.progress, finished: false };
   if (text.length > config.maxInputChars) return { error: 'too_long', reply: null, progress: state.progress, finished: false };
@@ -122,20 +141,28 @@ export async function publicState(sessionId) {
       card_hint: ui.card_hint || sc.greeting, chips: ui.chips || [],
     },
     revealed, progress, finished: session.finished, messages,
+    solution: session.solution || null,
+    hints: session.nudges || 0,
+    hints_left: Math.max(0, (sc.triggers?.length || 0) - (session.nudges || 0)),
+    timer: { ...stageOf(game), duration_sec: game?.duration_sec || null, answer_sec: game?.answer_sec || null },
+    devices: (session.devices || []).length,
+    rev: messages.length + session.revealed.length + (session.finished ? 1 : 0) + (session.solution ? 100 : 0) + (session.nudges || 0) * 7, // дёшево понять, изменилось ли что-то
     final: session.finished ? finalOf(sc) : null,
   };
 }
 
-/** Следующая подсказка-«триггер», если команда зависла. Счётчик хранится в сессии. */
+/** Команда попросила подсказку. Считается и видна преподавателю. */
 export async function nextTrigger(sessionId) {
   const st = await getSessionState(sessionId);
-  if (!st || st.session.finished) return null;
+  if (!st) return { error: 'no_session' };
+  const game = await getGame();
+  if (game && stageOf(game).stage !== 'play') return { error: 'time_up' };
   const list = st.scenario.triggers || [];
   const i = st.session.nudges || 0;
-  if (i >= list.length) return null;
+  if (i >= list.length) return { error: 'no_hints' };
   await store.updateSession(sessionId, { nudges: i + 1 });
   await store.addMessage(sessionId, st.scenario.id, 'assistant', list[i]);
-  return list[i];
+  return { text: list[i], hints: i + 1, left: list.length - i - 1 };
 }
 
 /** Табло: прогресс команд (объединение открытых фактов всех сессий сценария). */
@@ -155,7 +182,9 @@ export async function boardState() {
         accent: sc.ui?.accent || '#FF7A1A', accent_green: sc.ui?.accent_green || null,
         photo: sc.ui?.photo || null, photo_green: sc.ui?.photo_green || null,
         code: game?.teams.find((t) => t.scenario_id === sc.id)?.code || sc.access_code,
-        sessions: group.length, finished: group.some((s) => s.finished),
+        sessions: group.reduce((n, s) => n + Math.max(1, (s.devices || []).length), 0), finished: group.some((s) => s.finished),
+        score: group.map((s) => s.solution?.score).find((v) => v !== undefined) ?? null,
+        hints: group.reduce((n, s) => n + (s.nudges || 0), 0),
         done: req.filter((f) => union.has(f.id)).length, total: req.length,
         tags: req.map((f) => ({ label: f.label || f.id, on: union.has(f.id) })),
         extra: sc.facts.filter((f) => !f.required && union.has(f.id)).map((f) => f.label || f.id),
@@ -176,6 +205,23 @@ function randomCodes(n) {
 
 export const getGame = () => store.getMeta(GAME);
 
+/**
+ * Этап по часам сервера:
+ * 'lobby' — ждём старта, 'play' — идёт игра, 'answer' — только финальный ответ,
+ * 'over' — время вышло, 'finished' — преподаватель завершил игру.
+ */
+export function stageOf(game) {
+  if (!game) return { stage: 'play', left: null, left_answer: null };
+  if (game.phase === 'lobby') return { stage: 'lobby', left: null, left_answer: null };
+  if (game.phase === 'finished') return { stage: 'finished', left: 0, left_answer: 0 };
+  const dur = game.duration_sec || 600;
+  const ans = game.answer_sec || 60;
+  const passed = (Date.now() - new Date(game.started_at).getTime()) / 1000;
+  if (passed < dur) return { stage: 'play', left: Math.ceil(dur - passed), left_answer: ans };
+  if (passed < dur + ans) return { stage: 'answer', left: 0, left_answer: Math.ceil(dur + ans - passed) };
+  return { stage: 'over', left: 0, left_answer: 0 };
+}
+
 /** Преподаватель ввёл названия команд → выдаём случайные коды. Сценарии раздаются по порядку. */
 export async function createGame(names) {
   const scenarios = [...loadScenarios().values()]
@@ -184,6 +230,8 @@ export async function createGame(names) {
   const codes = randomCodes(scenarios.length);
   const game = {
     phase: 'lobby',
+    duration_sec: config.gameMinutes * 60,
+    answer_sec: config.answerSeconds,
     created_at: new Date().toISOString(),
     started_at: null,
     teams: scenarios.map((sc, i) => ({
@@ -220,4 +268,120 @@ export async function teamByCode(code) {
   if (game) return null; // идёт игра — работают только её коды
   const sc = findByCode(c);
   return sc ? { team: { scenario_id: sc.id, code: c, name: null }, game: null } : null;
+}
+
+/** Игра сыграна: коды и сессии остаются, чтобы показать статистику. */
+export async function finishGame() {
+  const game = await getGame();
+  if (!game) return null;
+  game.phase = 'finished';
+  game.finished_at = new Date().toISOString();
+  await store.setMeta(GAME, game);
+  return game;
+}
+
+/**
+ * Итоги урока: по каждой команде — сколько фактов, сколько вопросов,
+ * за сколько минут и в каком порядке раскрывались факты.
+ */
+export async function resultsState() {
+  const game = await getGame();
+  const sessions = await store.activeSessions();
+  const scenarios = [...loadScenarios().values()];
+
+  const teams = [];
+  for (const sc of scenarios) {
+    const group = sessions.filter((s) => s.scenario_id === sc.id);
+    if (!group.length && !game) continue;
+    const req = sc.facts.filter((f) => f.required);
+
+    // Собираем лог всех устройств команды
+    let log = [];
+    for (const s of group) log = log.concat(await store.log(s.chat_id, 400));
+    log.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+
+    const started = log[0]?.created_at ? new Date(log[0].created_at) : null;
+    const questions = log.filter((m) => m.role === 'user').length;
+    const revealAt = new Map();
+    for (const m of log) {
+      for (const id of m.revealed || []) if (!revealAt.has(id)) revealAt.set(id, m.created_at);
+    }
+    const minutes = (iso) => (started && iso ? Math.max(0, Math.round((new Date(iso) - started) / 60000)) : null);
+    const union = new Set(group.flatMap((s) => s.revealed));
+    const done = req.filter((f) => union.has(f.id)).length;
+    const lastRequired = req.filter((f) => revealAt.has(f.id)).map((f) => revealAt.get(f.id)).sort().pop();
+
+    teams.push({
+      id: sc.id,
+      team: game?.teams.find((t) => t.scenario_id === sc.id)?.name || sc.persona.name,
+      client: `${sc.persona.name}, ${sc.persona.age}`,
+      accent: sc.ui?.accent || '#FF7A1A', accent_green: sc.ui?.accent_green || null,
+      photo: sc.ui?.photo || null, photo_green: sc.ui?.photo_green || null,
+      letter: sc.persona.name[0],
+      done, total: req.length, finished: done === req.length,
+      questions, devices: group.length,
+      hints: group.reduce((n, s) => n + (s.nudges || 0), 0),
+      solution: group.map((s) => s.solution).find(Boolean) || null,
+      minutes: done === req.length ? minutes(lastRequired) : minutes(log[log.length - 1]?.created_at),
+      problem: sc.problem || '',
+      facts: [
+        ...req.map((f, i) => ({ label: f.label || f.id, text: f.text, on: union.has(f.id), at: minutes(revealAt.get(f.id)), order: i + 1, bonus: false })),
+        ...sc.facts.filter((f) => !f.required && union.has(f.id)).map((f) => ({ label: f.label || f.id, text: f.text, on: true, at: minutes(revealAt.get(f.id)), bonus: true })),
+      ],
+      // сколько вопросов пришлось на один факт — чем меньше, тем точнее спрашивали
+      precision: done ? Math.round((questions / done) * 10) / 10 : null,
+    });
+  }
+
+  // Победитель: больше фактов, при равенстве — быстрее
+  // Место: сначала балл за решение, потом раскрытые факты, потом время
+  teams.sort((a, b) => (b.solution?.score ?? -1) - (a.solution?.score ?? -1) || b.done - a.done || (a.minutes ?? 999) - (b.minutes ?? 999));
+  teams.forEach((t, i) => { t.rank = i + 1; });
+  return { phase: game?.phase || null, started_at: game?.started_at || null, finished_at: game?.finished_at || null, teams };
+}
+
+/**
+ * Команда прислала решение — модель ставит балл 0–10.
+ * Доступно только после того, как раскрыты все обязательные факты. Принимается одно решение.
+ */
+export async function submitSolution(sessionId, text, { llm = callJudge } = {}) {
+  const st = await getSessionState(sessionId);
+  if (!st) return { error: 'no_session' };
+  const { session, scenario } = st;
+  if (session.solution) return { solution: session.solution, already: true };
+  const game = await getGame();
+  const stage = stageOf(game).stage;
+  if (stage === 'lobby') return { error: 'not_started' };
+  if (stage === 'over' || stage === 'finished') return { error: 'time_over' };
+
+  text = String(text || '').trim();
+  if (text.length < 40) return { error: 'too_short' };
+  if (text.length > 4000) return { error: 'too_long' };
+
+  let out;
+  try {
+    const missedFacts = scenario.facts.filter((f) => f.required && !session.revealed.includes(f.id));
+    const note = missedFacts.length
+      ? `\n\nКоманда не успела выяснить: ${missedFacts.map((f) => f.label || f.id).join(', ')}. Это не повод занижать балл само по себе — оценивай по тому, насколько решение подходит клиентке.`
+      : '';
+    out = await llm([
+      { role: 'system', content: buildJudgePrompt(scenario) },
+      { role: 'user', content: `Решение команды «${session.label || 'без названия'}»:\n\n${text}${note}` },
+    ]);
+  } catch (e) {
+    console.error('[judge]', e.status || '', e.message);
+    return { error: 'llm_error' };
+  }
+
+  const solution = {
+    text,
+    score: Math.max(0, Math.min(10, Math.round(Number(out.score) || 0))),
+    verdict: String(out.verdict || '').trim(),
+    strengths: (out.strengths || []).slice(0, 3).map(String),
+    missed: (out.missed || []).slice(0, 3).map(String),
+    at: new Date().toISOString(),
+  };
+  await store.updateSession(sessionId, { solution });
+  await store.addMessage(sessionId, scenario.id, 'system', `SOLUTION ${solution.score}/10\n${text}`);
+  return { solution };
 }
