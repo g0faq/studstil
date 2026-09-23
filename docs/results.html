@@ -49,6 +49,7 @@
   .tl.off .lbl { color: var(--dim); }
   .tl.bonus .dot { background: transparent; border: 1px dashed var(--accent); color: var(--accent); }
   .problem { font-size: clamp(12px, 1vw, 18px); color: var(--dim); line-height: 1.45; border-top: 1px solid var(--stroke); padding-top: 10px; }
+  .foot .pill { text-decoration: none; }
   .foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .empty { text-align: center; color: var(--dim); padding: 12vh 0; }
 </style>
@@ -69,6 +70,7 @@
   <div class="podium" id="podium"></div>
   <div class="foot">
     <span class="subline" id="hint">Кнопка «В начало» сбросит игру: коды, прогресс и названия команд.</span>
+    <a class="pill" href="method/" target="_blank" rel="noopener" style="text-decoration:none">Разбор клиенток</a>
     <button class="pill" id="restart" type="button">В начало</button>
   </div>
 </div>

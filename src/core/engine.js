@@ -278,6 +278,33 @@ export async function teamByCode(code) {
   return sc ? { team: { scenario_id: sc.id, code: c, name: null }, game: null } : null;
 }
 
+/** Полный методический разбор всех сценариев — для преподавателя и заказчика. */
+export function methodState() {
+  return [...loadScenarios().values()]
+    .sort((a, b) => String(a.access_code).localeCompare(String(b.access_code), 'ru', { numeric: true }))
+    .map((sc) => ({
+      id: sc.id,
+      name: sc.persona.name, age: sc.persona.age, letter: sc.persona.name[0],
+      persona: sc.persona,
+      accent: sc.ui?.accent || '#FF7A1A', accent_green: sc.ui?.accent_green || null,
+      photo: sc.ui?.photo || null, photo_green: sc.ui?.photo_green || null,
+      code: sc.access_code, meta: sc.ui?.meta || '',
+      greeting: sc.greeting,
+      deflection: sc.deflection_style || '',
+      triggers: sc.triggers || [],
+      facts: sc.facts.map((f) => ({
+        id: f.id, label: f.label || f.id, text: f.text, reveal_when: f.reveal_when,
+        hint: f.hint || '', level: f.level || null, required: !!f.required,
+      })),
+      final_message: sc.final_message,
+      problem: sc.problem || '',
+      tasks: sc.tasks || [sc.task],
+      task_time: sc.task_time || '',
+      solution: sc.solution || null,
+      note: sc._note || '',
+    }));
+}
+
 /** Игра сыграна: коды и сессии остаются, чтобы показать статистику. */
 export async function finishGame() {
   const game = await getGame();

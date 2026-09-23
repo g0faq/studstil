@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Разбор клиенток · Beauty Case</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+<script>try{var p=localStorage.getItem('bc-palette');if(p)document.documentElement.dataset.palette=p}catch(e){}</script>
+<style>
+  body { min-height: 100%; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: clamp(22px, 4vh, 56px) clamp(18px, 4vw, 48px) 80px; display: flex; flex-direction: column; gap: clamp(18px, 3vh, 36px); }
+  h1 { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(28px, 4vw, 54px); line-height: 1.02; letter-spacing: -0.035em; margin: 0; }
+  .lead-top { font-size: clamp(14px, 1.2vw, 19px); color: var(--dim); line-height: 1.5; max-width: 70ch; }
+  .nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  .nav a { padding: 9px 14px; border-radius: 999px; border: 1px solid var(--stroke); background: var(--chip); color: var(--ink); font-size: 14px; font-weight: 700; }
+  .client { --accent: #FF7A1A; position: relative; overflow: hidden; border-radius: 30px; padding: clamp(18px, 2.4vw, 38px);
+    background: var(--glass); border: 1px solid var(--stroke); display: flex; flex-direction: column; gap: clamp(14px, 2vh, 26px); scroll-margin-top: 20px; }
+  .client::before { content: ''; position: absolute; top: -12%; right: -6%; width: 34%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); opacity: .22; filter: blur(50px); }
+  .c-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; position: relative; }
+  .c-head .avatar { width: clamp(64px, 6vw, 104px); height: clamp(64px, 6vw, 104px); font-size: clamp(24px, 2.4vw, 40px); }
+  .c-name { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(24px, 2.6vw, 44px); letter-spacing: -.03em; line-height: 1; }
+  .badge { padding: 7px 13px; border-radius: 999px; background: var(--accent); color: #140A02; font-weight: 800; font-size: 14px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: clamp(12px, 1.6vw, 22px); }
+  .box { padding: clamp(14px, 1.6vw, 24px); border-radius: 22px; background: var(--chip); border: 1px solid var(--stroke); display: flex; flex-direction: column; gap: 10px; }
+  .box h3 { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; font-weight: 800; color: var(--accent); }
+  .box p, .box li { font-size: clamp(14px, 1.05vw, 17px); line-height: 1.5; margin: 0; }
+  .box ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; }
+  .quote { font-family: Unbounded, sans-serif; font-weight: 400; font-size: clamp(15px, 1.3vw, 21px); line-height: 1.4; }
+  table { width: 100%; border-collapse: collapse; font-size: clamp(13px, 1vw, 16px); }
+  th { text-align: left; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); padding: 0 10px 10px 0; font-weight: 800; }
+  td { padding: 10px 10px 10px 0; border-top: 1px solid var(--stroke); vertical-align: top; line-height: 1.45; }
+  td.lbl { font-weight: 700; white-space: nowrap; }
+  .req { color: var(--accent); font-weight: 800; }
+  .opt { color: var(--dim); }
+  .look { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: clamp(12px, 1.6vw, 22px); }
+  .look .box { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent); }
+  .look h3 { display: flex; align-items: center; gap: 8px; }
+  .look .n { width: 22px; height: 22px; border-radius: 7px; background: var(--accent); color: #140A02; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+  .login { max-width: 420px; margin: 14vh auto; display: flex; flex-direction: column; gap: 12px; }
+  .login input { padding: 16px 18px; border-radius: 18px; color: var(--ink); font-size: 16px; font-family: inherit; border: 1px solid var(--stroke); background: var(--chip); }
+  .print { position: fixed; right: 18px; bottom: 18px; z-index: 10; }
+  @media print {
+    .blobs, .grain, .print, .nav { display: none !important; }
+    body { background: #fff; }
+    .client { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="blobs" aria-hidden="true" style="position:fixed"><i></i><i></i><i></i></div>
+<div class="grain" aria-hidden="true" style="position:fixed"></div>
+
+<div class="login hidden" id="login">
+  <h1 style="font-size:28px">Разбор клиенток</h1>
+  <input id="key" type="password" placeholder="Ключ преподавателя" autocomplete="current-password">
+  <button class="btn-main btn-grad" id="login-btn" type="button">Открыть</button>
+  <div class="err" id="login-err"></div>
+</div>
+
+<div class="wrap hidden" id="page" style="position:relative">
+  <div>
+    <h1>Что должны решить студенты</h1>
+    <p class="lead-top">Три клиентки, три разных запроса. По каждой: легенда, скрытые факты и вопросы-ключи к ним, настоящая потребность и полный образ — одежда, стрижка с укладкой и макияж. Команда собирает образ целиком: в этом и есть межпредметная связь, ради которой урок задуман.</p>
+  </div>
+  <div class="nav" id="nav"></div>
+  <div id="clients" style="display:flex;flex-direction:column;gap:clamp(18px,3vh,34px)"></div>
+  <div class="box" id="rules-box"></div>
+</div>
+<button class="pill print" id="print-btn" type="button">Распечатать / PDF</button>
+<script src="../config.js"></script>
+<script src="method.js"></script>
+</body>
+</html>

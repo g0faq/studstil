@@ -67,6 +67,7 @@
   .caps2 { font-size: clamp(10px, .8vw, 15px); letter-spacing: .14em; text-transform: uppercase; font-weight: 800; color: var(--dim); }
 
   .ic { width: 1.15em; height: 1.15em; vertical-align: -.2em; margin-right: .35em; }
+  .tools a.pill { text-decoration: none; }
   .tools { flex: none; display: flex; gap: 10px; align-items: center; font-size: clamp(11px, .9vw, 16px); }
   .pill.danger { border-color: color-mix(in srgb, var(--err) 55%, transparent); color: var(--err); }
   .pill.danger:hover { background: color-mix(in srgb, var(--err) 14%, transparent); }
@@ -96,6 +97,7 @@
   <div class="tools">
     <span class="dim" id="updated"></span>
     <span style="flex:1"></span>
+    <a class="pill" href="method/" target="_blank" rel="noopener">Разбор клиенток</a>
     <button class="pill" id="reset-btn" type="button">Сбросить прогресс</button>
     <button class="pill danger" id="end-btn" type="button">Завершить игру</button>
   </div>

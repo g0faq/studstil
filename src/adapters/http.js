@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
 import { store } from '../core/db.js';
-import { enterCode, handleMessage, publicState, nextTrigger, boardState, getGame, createGame, startGame, endGame, finishGame, resultsState, submitSolution, stageOf } from '../core/engine.js';
+import { enterCode, handleMessage, publicState, nextTrigger, boardState, getGame, createGame, startGame, endGame, finishGame, resultsState, submitSolution, stageOf, methodState } from '../core/engine.js';
 
 const STATIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../docs');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
@@ -160,6 +160,11 @@ async function route(req, res) {
     if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
     const game = await finishGame();
     return game ? send(res, 200, { game }) : send(res, 400, { error: 'Игра не создана' });
+  }
+
+  if (r === 'GET /api/admin/method') {
+    if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
+    return send(res, 200, { clients: methodState() });
   }
 
   if (r === 'GET /api/admin/results') {
