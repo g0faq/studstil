@@ -20,7 +20,6 @@
   let waitTimer = null;
   let entering = 0; // метка последнего входа: ответ старого запроса не должен перетирать новый
   let shown = 0; // сколько сообщений уже анимировано (остальные не переигрываем)
-  let fresh = new Set(); // индексы только что раскрывших факт ответов
   // Свои иконки вместо эмодзи
   const ICON = {
     unlock: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 9V6.6A4 4 0 0 1 13.6 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3.2" y="9" width="13.6" height="8.4" rx="2.6" fill="currentColor"/><circle cx="10" cy="13.2" r="1.5" fill="var(--bg2)"/></svg>',
@@ -31,7 +30,6 @@
     warn: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 5.8v5.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="14.3" r="1.15" fill="currentColor"/></svg>',
   };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const hits = new Set(); // индексы сообщений, раскрывших факт (для обводки)
   const extra = []; // системные строки в ленте: { after: индекс сообщения, text, err }
 
   async function api(path, body) {
@@ -103,8 +101,7 @@
     try {
       const r = await api('/api/session', { code, deviceId });
       if (mark !== entering) return; // пока ждали ответ, ввели другой код
-      sessionId = r.sessionId; store.set('bc-session', sessionId);
-      hits.clear(); extra.length = 0; shown = 0; draft = ''; scoreVersion = null; revealSig = null; $('#jobs').dataset.sig = '';
+      sessionId = r.sessionId; store.set('bc-session', sessionId); extra.length = 0; shown = 0; draft = ''; scoreVersion = null; revealSig = null; $('#jobs').dataset.sig = '';
       apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : 'card');
     } catch (err) {
       $('#code-err').textContent = err.message;
@@ -208,14 +205,16 @@
 
   function renderProgress() {
     const { progress: p, revealed, finished } = state;
-    $('#prog-text').textContent = `Раскрыто ${p.required_open} из ${p.required_total} фактов`;
+    // Считаем главные факты отдельно от дополнительных, иначе кажется, что находки не засчитали
+    const req = revealed.filter((f) => f.required);
+    const bonus = revealed.filter((f) => !f.required);
+    $('#prog-text').textContent = `Раскрыто ${p.required_open} из ${p.required_total} главных фактов`
+      + (bonus.length ? ` · +${bonus.length} ${bonus.length === 1 ? 'дополнительный' : 'дополнительных'}` : '');
     $('#prog-label').textContent = finished ? 'готово' : 'продолжайте';
     $('#prog-fill').style.width = Math.round((p.required_open / p.required_total) * 100) + '%';
     $('#finish-wrap').classList.toggle('hidden', !finished);
     $('#composer').classList.toggle('hidden', finished);
     $('#chips').classList.toggle('hidden', finished);
-    const req = revealed.filter((f) => f.required);
-    const bonus = revealed.filter((f) => !f.required);
     const hidden = p.required_total - req.length;
     const box = $('#dossier'); box.replaceChildren();
     for (const f of [...req, ...bonus]) box.append(factEl(f.required ? f.label : `${f.label} · бонус`, f.text, true));
@@ -235,17 +234,18 @@
     const box = $('#msgs'); box.replaceChildren();
     state.messages.forEach((m, i) => {
       const old = i < shown ? ' old' : '';
-      box.append(bubble(m.who + (hits.has(i) ? ' hit' : '') + (fresh.has(i) ? ' reveal' : '') + old, m.text));
-      for (const x of extra.filter((x) => x.after === i)) {
-        if (x.stamp) {
-          const st = document.createElement('div');
-          st.className = 'stamp' + (fresh.has(i) ? ' fresh' : '');
-          st.innerHTML = ICON.unlock + '<span></span>';
-          st.querySelector('span').textContent = x.text;
-          box.append(st);
-        }
-        else box.append(bubble('sys' + (x.err ? ' err' : '') + old, x.text));
+      // Раскрытые факты приходят с сервера: их видят все телефоны команды, а не только тот, где спросили
+      const reveals = m.reveals || [];
+      const hit = reveals.length ? ' hit' : '';
+      box.append(bubble(m.who + hit + (hit && !old ? ' reveal' : '') + old, m.text));
+      for (const label of reveals) {
+        const st = document.createElement('div');
+        st.className = 'stamp' + (old ? '' : ' fresh');
+        st.innerHTML = ICON.unlock + '<span></span>';
+        st.querySelector('span').textContent = label;
+        box.append(st);
       }
+      for (const x of extra.filter((x) => x.after === i)) box.append(bubble('sys' + (x.err ? ' err' : '') + old, x.text));
     });
     shown = state.messages.length;
     if (state.finished && state.final) { box.append(bubble('them hit', state.final.message)); const s = bubble('sys', ''); s.innerHTML = ICON.spark + '<span></span>'; s.querySelector('span').textContent = 'Вы выяснили запрос клиентки! Нажмите «Сформулировать проблему»'; box.append(s); }
@@ -253,7 +253,27 @@
     $('#status').textContent = typing ? 'печатает…' : 'в сети';
     scrollDown();
   }
-  const scrollDown = () => { const b = $('#msgs'); requestAnimationFrame(() => { b.scrollTop = b.scrollHeight; }); };
+  // Лента «прилипает» к низу. Высота меняется уже после отрисовки: появляется штамп факта,
+  // текст переносится, подгружается шрифт — поэтому докручиваем несколько раз и следим за изменениями.
+  const msgsBox = $('#msgs');
+  let stick = true;
+  const pin = () => { msgsBox.scrollTop = msgsBox.scrollHeight; };
+  const atBottom = () => msgsBox.scrollHeight - msgsBox.scrollTop - msgsBox.clientHeight < 90;
+  msgsBox.addEventListener('scroll', () => { stick = atBottom(); });
+  const scrollDown = (force = false) => {
+    if (!force && !stick) return; // студент листает историю — не дёргаем
+    stick = true;
+    pin();
+    requestAnimationFrame(() => { pin(); requestAnimationFrame(pin); });
+    setTimeout(pin, 120);
+    setTimeout(pin, 400);
+  };
+  // Любое изменение содержимого ленты возвращает нас к последнему сообщению
+  new MutationObserver(() => { if (stick) requestAnimationFrame(pin); })
+    .observe(msgsBox, { childList: true, subtree: true, characterData: true });
+  new ResizeObserver(() => { if (stick) pin(); }).observe(msgsBox);
+  if (document.fonts?.ready) document.fonts.ready.then(() => { if (stick) pin(); });
+  if (window.visualViewport) visualViewport.addEventListener('resize', () => { if (stick) setTimeout(pin, 60); }); // клавиатура на телефоне
 
   function renderChips() {
     const box = $('#chips'); box.replaceChildren();
@@ -301,8 +321,8 @@
     if (!text || busy) return;
     busy = true; input.value = '';
     state.messages.push({ who: 'me', text });
-    fresh = new Set();
     renderMsgs(true);
+    scrollDown(true);
     try {
       const r = await api('/api/message', { sessionId, text, deviceId });
       const before = state.messages.length;
@@ -310,10 +330,8 @@
       apply(r.state);
       shown = prevShown; // apply() перерисовал ленту — ответ ещё не «показан»
       const last = state.messages.length - 1;
-      fresh = new Set();
       if (r.newly.length) {
-        hits.add(last); fresh.add(last);
-        for (const f of r.newly) extra.push({ after: last, text: f.label, stamp: true });
+        // сам штамп рисуется из состояния сервера; здесь только подсветка прогресса и искры
         $('#prog-fill').classList.remove('glint'); void $('#prog-fill').offsetWidth; $('#prog-fill').classList.add('glint');
         setTimeout(() => burst($('#prog-fill')), 350);
       }
@@ -748,7 +766,7 @@
   }
 
   function resetToStart() {
-    store.set('bc-session', null); sessionId = null; state = null; hits.clear(); extra.length = 0; shown = 0; fresh = new Set();
+    store.set('bc-session', null); sessionId = null; state = null; extra.length = 0; shown = 0;
     draft = ''; scoreVersion = null; revealSig = null;
     try { revealComp?.destroy?.(); } catch {}
     revealComp = null;

@@ -14,12 +14,14 @@ window.BeautyReveal = (() => {
     const beforeImg = new Image();
     beforeImg.src = before;
     beforeImg.alt = 'Клиентка до консультации';
+    beforeImg.draggable = false;
 
     const afterWrap = document.createElement('div');
     afterWrap.className = 'after-wrap';
     const afterImg = new Image();
     afterImg.src = after;
     afterImg.alt = caption;
+    afterImg.draggable = false;
     afterWrap.append(afterImg);
 
     const sweep = document.createElement('div');
@@ -113,6 +115,7 @@ window.BeautyReveal = (() => {
       setPos((x / rect.width) * 100);
     };
     const onDown = (e) => {
+      e.preventDefault(); // без этого браузер начинает выделять картинку и подсвечивает её синим
       if (state === 'idle') { start(); return; }
       drag(e);
       window.addEventListener('pointermove', drag);
@@ -121,6 +124,8 @@ window.BeautyReveal = (() => {
     const onUp = () => window.removeEventListener('pointermove', drag);
 
     el.addEventListener('pointerdown', onDown);
+    el.addEventListener('dragstart', (e) => e.preventDefault());
+    el.addEventListener('selectstart', (e) => e.preventDefault());
     play.addEventListener('click', start);
 
     if (autoplay) {

@@ -11,7 +11,18 @@
   isolation: isolate;
   touch-action: pan-y;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
+/* Картинку нельзя выделить или утащить: иначе браузер подсвечивает её синим при перетаскивании ручки */
+.reveal img, .reveal .handle, .reveal .tag, .reveal .sweep, .reveal .flash {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
+.reveal img { pointer-events: none; }
+.reveal ::selection { background: transparent; }
 .reveal img {
   position: absolute;
   inset: 0;
