@@ -112,7 +112,8 @@
 
   .ic { width: 1.15em; height: 1.15em; vertical-align: -.2em; margin-right: .35em; }
   .tools a.pill { text-decoration: none; }
-  .tools { flex: none; display: flex; gap: 10px; align-items: center; font-size: clamp(11px, .9vw, 16px); flex-wrap: wrap; }
+  /* Слева в этом углу стоит значок настроек — отводим ему место, иначе он накрывает время обновления */
+  .tools { flex: none; display: flex; gap: 10px; align-items: center; font-size: clamp(11px, .9vw, 16px); flex-wrap: wrap; padding-left: 48px; }
   .pill.danger { border-color: color-mix(in srgb, var(--err) 55%, transparent); color: var(--err); }
   .pill.danger:hover { background: color-mix(in srgb, var(--err) 14%, transparent); }
   .lane.enter { animation: riseIn .6s var(--ease-out) both; animation-delay: calc(var(--i) * 110ms); }
