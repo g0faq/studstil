@@ -220,7 +220,7 @@
       btn.classList.add('busy');
       try {
         await call('/api/admin/end', { method: 'POST' });
-        location.href = ROOT + 'admin/';
+        location.href = ROOT + 'admin/#rules'; // заставку пропускаем: преподаватель попадает сразу на правила
       } catch (e) {
         msg.className = 'at-msg err';
         msg.textContent = e.message;

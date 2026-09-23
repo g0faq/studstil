@@ -320,6 +320,8 @@
       if (game?.phase === 'running') return location.replace('../board.html'); // игра уже идёт → дашборд
       if (game?.phase === 'lobby') { renderCodes(); show('s-codes'); startPoll(); return; }
     } catch {}
+    // После сброса преподаватель попадает сразу на правила, а не на заставку
+    if (location.hash === '#rules') { history.replaceState(null, '', location.pathname); show('s-rules'); return; }
     show('s-splash');
   }
 
@@ -416,6 +418,29 @@
     };
     tick(); poll = setInterval(tick, 2500);
   }
+
+  // Кнопка «Сброс»: все игры заканчиваются, команды возвращаются на стартовый экран,
+  // преподаватель — на правила. Первое нажатие только предупреждает, второе выполняет.
+  const resetBtn = $('#reset-all');
+  let armed = null;
+  resetBtn.onclick = async () => {
+    if (!armed) {
+      resetBtn.classList.add('armed');
+      resetBtn.textContent = 'Точно сбросить?';
+      armed = setTimeout(() => { armed = null; resetBtn.classList.remove('armed'); resetBtn.textContent = 'Сброс'; }, 4000);
+      return;
+    }
+    clearTimeout(armed); armed = null;
+    resetBtn.disabled = true;
+    resetBtn.textContent = 'Сбрасываем…';
+    try {
+      await api('/api/admin/end', 'POST');
+      clearInterval(poll);
+      game = null;
+      show('s-rules');
+    } catch (e) { alert(e.message); }
+    finally { resetBtn.disabled = false; resetBtn.classList.remove('armed'); resetBtn.textContent = 'Сброс'; }
+  };
 
   $('#start-btn').onclick = async () => {
     if ($('#start-btn').disabled) return;
