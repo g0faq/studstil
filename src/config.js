@@ -1,4 +1,10 @@
-import 'dotenv/config';
+import fs from 'node:fs';
+import dotenv from 'dotenv';
+
+// Локально ключи лежат в .env рядом с кодом. На сервере — на постоянном диске:
+// так они не попадают в репозиторий и переживают пересборку приложения.
+dotenv.config();
+for (const f of ['/data/.env', '/data/env']) if (fs.existsSync(f)) dotenv.config({ path: f, override: true });
 
 const num = (v, d) => (v === undefined || v === '' ? d : Number(v));
 
