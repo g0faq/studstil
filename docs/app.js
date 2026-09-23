@@ -102,6 +102,7 @@
       const r = await api('/api/session', { code, deviceId });
       if (mark !== entering) return; // пока ждали ответ, ввели другой код
       sessionId = r.sessionId; store.set('bc-session', sessionId); extra.length = 0; shown = 0; draft = ''; scoreVersion = null; revealSig = null; $('#jobs').dataset.sig = '';
+      $('#solution').value = store.get(draftKey(sessionId)) || ''; $('#q').value = '';
       apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : 'card');
     } catch (err) {
       $('#code-err').textContent = err.message;
@@ -228,7 +229,9 @@
     d.append(l, t); return d;
   }
 
-  function bubble(cls, text) { const d = document.createElement('div'); d.className = 'msg ' + cls; d.textContent = text; return d; }
+  // Модель иногда заканчивает ответ пустыми строками: в pre-wrap они превращаются в пустоту под текстом
+  const tidy = (t) => String(t == null ? '' : t).replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+  function bubble(cls, text) { const d = document.createElement('div'); d.className = 'msg ' + cls; d.textContent = tidy(text); return d; }
 
   function renderMsgs(typing = false) {
     const box = $('#msgs'); box.replaceChildren();
@@ -766,7 +769,9 @@
   }
 
   function resetToStart() {
+    if (sessionId) store.set('bc-draft:' + sessionId, null);
     store.set('bc-session', null); sessionId = null; state = null; extra.length = 0; shown = 0;
+    $('#solution').value = ''; $('#q').value = '';
     draft = ''; scoreVersion = null; revealSig = null;
     try { revealComp?.destroy?.(); } catch {}
     revealComp = null;
@@ -782,12 +787,20 @@
     $('#dossier-btn').setAttribute('aria-expanded', String(!d.classList.contains('hidden')));
   };
 
+  // --- Поля ввода ---
+  // Браузер сам возвращает в поля то, что было напечатано до перезагрузки, и текст выглядит как чужая подсказка.
+  // Поэтому очищаем всё на старте, а черновик решения храним сами и возвращаем только своей команде.
+  const draftKey = (id) => 'bc-draft:' + id;
+  for (const el of [$('#code'), $('#q'), $('#solution')]) el.value = '';
+  $('#solution').addEventListener('input', () => { if (sessionId) store.set(draftKey(sessionId), $('#solution').value); });
+
   // --- Восстановление после перезагрузки страницы ---
   if (sessionId) {
     const restoring = sessionId;
     api('/api/session?id=' + encodeURIComponent(restoring))
       .then((r) => {
         if (entering || sessionId !== restoring) return; // уже вошли по новому коду — старую сессию игнорируем
+        $('#solution').value = store.get(draftKey(restoring)) || '';
         apply(r.state);
         // Всё переживает перезагрузку: экран выбираем по состоянию с сервера
         const stage = r.state.timer?.stage;

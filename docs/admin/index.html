@@ -29,11 +29,14 @@
   .name-card input { width: 100%; box-sizing: border-box; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--stroke);
     background: var(--chip); color: var(--ink); font-family: Manrope, sans-serif; font-size: clamp(15px, 1.2vw, 20px); font-weight: 600; outline: none; }
   .name-card input:focus { border-color: var(--accent); }
-  .codes-row { display: flex; gap: clamp(14px, 2vw, 34px); width: 100%; align-items: stretch; justify-content: center; flex-wrap: wrap; }
-  .code-card { flex: 1 1 240px; max-width: 360px; padding: clamp(18px, 2vw, 34px); border-radius: 28px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-  .code-num { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(44px, 6vw, 104px); letter-spacing: .04em; line-height: 1; color: var(--accent); }
-  .qr-card { flex: 0 0 auto; padding: clamp(16px, 1.8vw, 28px); border-radius: 28px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .qr-card svg { width: clamp(150px, 16vw, 260px); height: auto; color: var(--accent); }
+    /* Коды всегда в одну строку: класс должен видеть их одним взглядом */
+  .codes-row { display: flex; gap: clamp(10px, 1.4vw, 24px); width: 100%; align-items: stretch; justify-content: center; flex-wrap: nowrap; }
+  .code-card { flex: 1 1 0; min-width: 0; padding: clamp(12px, 1.5vw, 26px) clamp(8px, 1vw, 18px); border-radius: 24px; display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; }
+  .code-card .caps { font-size: clamp(10px, .85vw, 15px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .code-card .mini { font-size: clamp(10px, .85vw, 15px); }
+  .code-num { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(30px, 4.6vw, 86px); letter-spacing: .02em; line-height: 1; color: var(--accent); }
+  .qr-card { flex: 0 0 auto; padding: clamp(14px, 1.6vw, 26px); border-radius: 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .qr-card svg { width: clamp(240px, 30vw, 460px); height: auto; color: var(--accent); }
   .row-btns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
   .btn-main { width: auto; padding: clamp(14px, 1.4vw, 22px) clamp(28px, 3vw, 56px); font-size: clamp(16px, 1.3vw, 24px); }
   .waiting { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; font-size: clamp(14px, 1.1vw, 20px); color: var(--dim); }

@@ -343,6 +343,7 @@
       card.innerHTML = `<div class="caps" style="color:${t.accent}">Клиентка ${i + 1} · ${t.name}, ${t.age}</div>`;
       const input = document.createElement('input');
       input.placeholder = `Команда ${i + 1}`; input.maxLength = 40; input.dataset.i = i;
+      input.autocomplete = 'off'; input.value = '';
       input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#make-codes').click(); } };
       card.append(input); form.append(card);
     });
