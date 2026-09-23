@@ -1,6 +1,6 @@
 # Развёртывание на Amvera. Один процесс отдаёт и сайт, и API — всё с одного домена.
 meta:
-  environment: nodejs
+  environment: node
   toolchain:
     name: npm
     version: 20

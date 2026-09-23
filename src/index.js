@@ -11,6 +11,22 @@ const server = createHttpServer();
 server.listen(config.port, () => console.log(`HTTP: http://localhost:${config.port}  (табло: /board.html?key=ADMIN_KEY)`));
 if (!config.adminKey) console.warn('ADMIN_KEY пуст — табло преподавателя недоступно');
 
+// Проверка связи с моделью при старте: из России прямой доступ к OpenAI бывает закрыт,
+// и лучше увидеть это в логах сразу, чем на уроке при первом вопросе клиентке.
+(async () => {
+  const base = (config.openaiBaseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const t0 = Date.now();
+  try {
+    const res = await fetch(`${base}/models`, {
+      headers: { Authorization: `Bearer ${config.openaiKey || ''}` },
+      signal: AbortSignal.timeout(12000),
+    });
+    console.log(`[проверка] OpenAI (${base}): ответ ${res.status} за ${Date.now() - t0} мс`);
+  } catch (e) {
+    console.error(`[проверка] OpenAI (${base}) недоступен за ${Date.now() - t0} мс: ${e.message}`);
+  }
+})();
+
 // Telegram: запускается, только если задан токен
 let bot;
 if (config.telegramToken) {
