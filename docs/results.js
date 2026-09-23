@@ -514,11 +514,20 @@
 
     // --- Потребности и границы ---
     if (ev) {
+      // Нарушенные границы сервер отдаёт объектами { block, text } — берём текст,
+      // иначе в плашке оказалось бы «[object Object]»
+      const BLOCK_NAME = { outfit: 'одежда', hair: 'волосы', makeup: 'макияж' };
+      const limitText = (v) => {
+        if (typeof v === 'string') return v;
+        if (!v) return '';
+        const name = BLOCK_NAME[v.block];
+        return (name ? name + ': ' : '') + String(v.text || '');
+      };
       const rows = [
         ['Выяснили', ev.found_needs, 'ok'],
         ['Упустили', ev.missed_needs, 'miss'],
         ['Учли ограничения', ev.respected_limits, 'ok'],
-        ['Нарушили ограничения', ev.violated_limits, 'bad'],
+        ['Нарушили ограничения', (ev.violated_limits || []).map(limitText).filter(Boolean), 'bad'],
       ].filter(([, arr]) => (arr || []).length);
       if (rows.length) {
         const b = block('Потребности клиентки');

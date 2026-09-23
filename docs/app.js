@@ -553,7 +553,9 @@
     try { revealComp?.destroy?.(); } catch {}
     revealComp = null;
     slot.replaceChildren();
-    const name = String(w.photo_full || state?.client?.photo_full || state?.client?.photo || '').split('/').pop();
+    // Кадр «до» — только полный рост из work.photo_full. Портрет из карточки сюда не подходит:
+    // сравнивать поясной кроп с полным образом бессмысленно, лучше честно написать, что картинки нет.
+    const name = String(w.photo_full || '').split('/').pop();
     if (w.image_status !== 'done' || !w.image?.key || !name || !window.BeautyReveal) {
       const n = document.createElement('div'); n.className = 'wk-note';
       n.textContent = IMAGE_NOTE[w.image_status] || IMAGE_NOTE.error;

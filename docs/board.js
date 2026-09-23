@@ -402,8 +402,8 @@
       labels: ['Прошлый образ', 'Страх', 'Не молодиться', 'Образ с характером'], extraLabels: [] },
     { id: 'alina', name: 'Алина', age: 24, letter: 'А', team: 'Команда 3', code: '303', accent: '#FF5A5F', accent_green: '#FF5A5F', photo: 'img/alina.svg', photo_green: 'img/alina-green.svg', total: 4,
       labels: ['Цель', 'Время на сборы', 'Цвет волос', 'Чувство'], extraLabels: ['Референсы'] },
-    { id: 'kristina', name: 'Кристина', age: 19, letter: 'К', team: 'Команда 4', code: '404', accent: '#7FB2FF', accent_green: '#5FD3C4', photo: null, photo_green: null, total: 4,
-      labels: ['Повод', 'Страх', 'Бюджет', 'Образ'], extraLabels: [] },
+    { id: 'valeria', name: 'Валерия', age: 29, letter: 'В', team: 'Команда 4', code: '404', accent: '#7FB2FF', accent_green: '#5FD3C4', photo: 'img/valeria-face.jpg', photo_green: 'img/valeria-face.jpg', total: 4,
+      labels: ['Контекст', 'Эмоция', 'Волосы', 'Макияж'], extraLabels: ['Бюджет'] },
   ];
   let demoDone = [1, 0, 2, 3];
   let demoPhase = [0, 0, 0, 0]; // 0 сдана → 1 считается → 2 оценена
