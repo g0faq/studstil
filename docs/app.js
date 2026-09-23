@@ -110,7 +110,45 @@
     }
     finally { $('#enter-btn').disabled = false; }
   };
-  $('#code').oninput = () => { $('#code-err').textContent = ''; };
+  // --- Ячейки кода ---
+  // Ввод один настоящий, ячейки только показывают набранное: удаление, вставка и клавиатура телефона
+  // работают сами, без ручного перескакивания фокуса между полями.
+  const codeInput = $('#code');
+  const codeCells = $('#code-cells');
+  const CODE_CELLS = 4;
+
+  function paintCode() {
+    const digits = codeInput.value;
+    const count = Math.max(CODE_CELLS, digits.length); // тестовый код длиннее — ячейки добавляются
+    const focused = document.activeElement === codeInput;
+    codeCells.toggleAttribute('data-wide', count > CODE_CELLS);
+    codeCells.replaceChildren();
+    const active = Math.min(digits.length, count - 1); // курсор стоит в первой пустой ячейке
+    for (let i = 0; i < count; i++) {
+      const digit = digits[i];
+      const here = focused && i === active;
+      const cell = document.createElement('div');
+      cell.className = 'code-cell' + (digit ? ' filled' : '') + (here ? ' now' : '');
+      if (digit) cell.textContent = digit;
+      else if (here) cell.append(Object.assign(document.createElement('i'), { className: 'caret' }));
+      codeCells.append(cell);
+    }
+  }
+
+  const onlyDigits = () => {
+    const clean = codeInput.value.replace(/\D/g, '').slice(0, 8);
+    if (clean !== codeInput.value) codeInput.value = clean;
+  };
+  codeInput.oninput = () => { onlyDigits(); $('#code-err').textContent = ''; paintCode(); };
+  codeInput.onfocus = paintCode;
+  codeInput.onblur = paintCode;
+  // Курсор всегда в конце: иначе цифра вставится в середину, а ячейки покажут не то, что ждёт человек
+  const toEnd = () => { const n = codeInput.value.length; try { codeInput.setSelectionRange(n, n); } catch {} };
+  codeInput.addEventListener('click', toEnd);
+  codeInput.addEventListener('keyup', paintCode);
+  codeInput.addEventListener('select', toEnd);
+  codeCells.addEventListener('pointerdown', (e) => { e.preventDefault(); codeInput.focus(); toEnd(); });
+  paintCode();
 
   // --- Отрисовка ---
   function apply(s) {
@@ -778,7 +816,7 @@
     revealComp = null;
     $('#jobs').dataset.sig = '';
     $('#app').style.removeProperty('--accent'); $('#app').style.removeProperty('--accent-soft');
-    clearInterval(waitTimer); clearInterval(syncTimer); clearInterval(jobsTimer); $('#code').value = ''; go('start');
+    clearInterval(waitTimer); clearInterval(syncTimer); clearInterval(jobsTimer); $('#code').value = ''; paintCode(); go('start');
   }
   $('#restart-btn').onclick = resetToStart;
   $('#wait-exit').onclick = resetToStart;
@@ -812,6 +850,7 @@
   // Поэтому очищаем всё на старте, а черновик решения храним сами и возвращаем только своей команде.
   const draftKey = (id) => 'bc-draft:' + id;
   for (const el of [$('#code'), $('#q'), $('#solution')]) el.value = '';
+  paintCode();
   $('#solution').addEventListener('input', () => { if (sessionId) store.set(draftKey(sessionId), $('#solution').value); });
 
   // --- Восстановление после перезагрузки страницы ---
