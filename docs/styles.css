@@ -181,8 +181,9 @@ button:disabled { opacity: .5; cursor: default; }
 .msgs .msg.old { animation: none; }
 
 /* Раскрытие факта — главный момент игры */
-.msg.them.reveal { position: relative; overflow: hidden; }
-.msg.them.reveal::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--accent) 45%, transparent) 50%, transparent 70%); transform: translateX(-100%); animation: sweep .9s var(--ease-out) .15s forwards; }
+/* Не называть этот класс reveal: так называется блок «до/после», у него задано соотношение сторон */
+.msg.them.unlocked { position: relative; overflow: hidden; }
+.msg.them.unlocked::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--accent) 45%, transparent) 50%, transparent 70%); transform: translateX(-100%); animation: sweep .9s var(--ease-out) .15s forwards; }
 @keyframes sweep { to { transform: translateX(100%); } }
 .ic { width: 1.15em; height: 1.15em; flex: none; }
 .msg.sys { display: inline-flex; align-items: center; gap: 6px; justify-content: center; }

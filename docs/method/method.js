@@ -106,7 +106,6 @@
       who.append(el('div', 'c-name', `${c.name}, ${c.age}`));
       const meta = el('div', 'c-meta');
       if (c.meta) meta.append(el('span', null, c.meta));
-      if (c.task_time) meta.append(el('span', 'badge soft', c.task_time));
       who.append(meta);
       main.append(who);
 

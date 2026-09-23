@@ -61,6 +61,13 @@
   .lane.done .flag { color: var(--accent); transform: translateY(-50%) scale(1.12); }
 
   .right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+  .bonus { display: flex; align-items: center; flex-wrap: wrap; gap: clamp(4px, .4vw, 8px); margin-top: clamp(4px, .5vh, 10px); }
+  .bonus-cap { font-size: clamp(8px, .62vw, 12px); letter-spacing: .16em; text-transform: uppercase; font-weight: 800; color: var(--dim); }
+  .bchip { font-size: clamp(9px, .72vw, 14px); font-weight: 800; padding: .25em .7em; border-radius: 999px;
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); white-space: nowrap; }
+  .bchip.pop { animation: bchipIn .5s cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes bchipIn { from { opacity: 0; transform: scale(.5) rotate(-6deg); } to { opacity: 1; transform: none; } }
   .rrow { display: flex; align-items: center; justify-content: flex-end; gap: clamp(6px, .6vw, 12px); flex-wrap: wrap; }
   .score { display: flex; align-items: baseline; gap: 4px; justify-content: flex-end; line-height: .85; }
   .big { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(34px, 4.4vw, 88px); letter-spacing: -.05em; color: var(--accent); }

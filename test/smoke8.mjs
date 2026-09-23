@@ -56,7 +56,7 @@ a(st.hints_left === 1, 'подсказки берутся из её сценар
 
 for (const id of ['contest', 'fear']) await E.handleMessage(s4, 'q', { llm: mock([id]) });
 const fin = await E.publicState(s4);
-a(fin.finished && fin.final.brief.length === 3 && !fin.reference, 'финиш без утечки готового решения');
+a(fin.finished && fin.final.message && !fin.reference, 'финиш без утечки готового решения');
 await E.submitSolution(s4, 'Одежда: костюм для сцены. Волосы: укладка с объёмом. Макияж: яркий, но не вульгарный.');
 await E.evaluateWork(s4, { judge });
 

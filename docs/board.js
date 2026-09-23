@@ -80,6 +80,14 @@
     const wt = el('div', 'who-text');
     const nm = el('div', 'team-name', t.team);
     wt.append(nm, el('div', 'dim', `${t.name}, ${t.age} · код ${t.code}`));
+    // Доп-сведения: их не требуется находить, но команде они дают преимущество — показываем всем
+    if (t.extra && t.extra.length) {
+      const bonus = el('div', 'bonus');
+      const had = (was && was.extra) || [];
+      bonus.append(el('span', 'bonus-cap', 'доп'));
+      for (const label of t.extra) bonus.append(el('span', 'bchip' + (was && !had.includes(label) && !reduced ? ' pop' : ''), label));
+      wt.append(bonus);
+    }
     who.append(av, wt);
 
     // Дорожка с отметками по фактам
@@ -153,7 +161,7 @@
       grid.append(lane);
       const st = statusOf(w);
       prev.set(t.id, {
-        done: t.done, tags: t.tags.map((g) => g.on),
+        done: t.done, tags: t.tags.map((g) => g.on), extra: [...(t.extra || [])],
         status: st ? st.cls + st.text : undefined,
         score: st && st.score != null ? st.score : null,
       });

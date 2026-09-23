@@ -102,8 +102,6 @@ export function createBot() {
     await ctx.reply(res.reply);
     if (res.finished) {
       await ctx.reply(`🎉 Вы выяснили запрос клиента!\n\n${res.final.message}`);
-      const f = res.final;
-      await ctx.reply(['🎯 Задание команде:', ...f.tasks.map((t) => `— ${t}`), f.task_time].filter(Boolean).join('\n'));
     }
   });
 

@@ -23,12 +23,6 @@ export function progressOf(scenario, revealed) {
  */
 export const finalOf = (sc) => ({
   message: sc.final_message,
-  brief: [
-    'Одежда и силуэт: что и почему носить.',
-    'Стрижка, укладка и цвет волос.',
-    'Макияж: техника и средства.',
-  ],
-  task_time: sc.task_time || '',
 });
 
 /** Эталон преподавателя — показываем команде только после того, как она прислала своё решение. */
@@ -373,7 +367,6 @@ export function methodState() {
       final_message: sc.final_message,
       problem: sc.problem || '',
       tasks: sc.tasks || [sc.task],
-      task_time: sc.task_time || '',
       solution: sc.solution || null,
       note: sc._note || '',
     }));

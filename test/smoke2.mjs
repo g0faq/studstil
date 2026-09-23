@@ -22,7 +22,7 @@ a((await E.handleMessage(s1, 'x'.repeat(600), { llm: mock([]) })).error === 'too
 for (const id of ['o1','o2','o3']) r = await E.handleMessage(s1, 'q', { llm: mock([id, id]) });
 a(!r.finished && r.progress.required_open === 3, 'прогресс 3/4, дубли не считаются');
 r = await E.handleMessage(s1, 'q', { llm: mock(['o4']) });
-a(r.finished && r.final.brief.length === 3 && !r.final.tasks, 'финиш: нейтральное задание без готового ответа');
+a(r.finished && r.final.message && !r.final.tasks && !r.final.brief, 'финиш: только слова клиентки, без готового ответа и офлайн-задания');
 a((await E.handleMessage(s1, 'q', { llm: mock([]) })).error === 'already_finished', 'после финиша');
 a(buildSystemPrompt(getScenario('olga'), ['o1']).includes('[o1] (УЖЕ РАССКАЗАНО'), 'статусы фактов в промпте');
 config.rateLimitMs = 10000;

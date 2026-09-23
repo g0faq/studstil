@@ -250,7 +250,7 @@
       // Раскрытые факты приходят с сервера: их видят все телефоны команды, а не только тот, где спросили
       const reveals = m.reveals || [];
       const hit = reveals.length ? ' hit' : '';
-      if (lines(m.text).length) box.append(bubble(m.who + hit + (hit && !old ? ' reveal' : '') + old, m.text));
+      if (lines(m.text).length) box.append(bubble(m.who + hit + (hit && !old ? ' unlocked' : '') + old, m.text));
       for (const label of reveals) {
         const st = document.createElement('div');
         st.className = 'stamp' + (old ? '' : ' fresh');
@@ -306,19 +306,10 @@
       const row = document.createElement('div'); row.className = 'row';
       row.innerHTML = '<div class="num"></div><div style="display:flex;flex-direction:column;gap:2px"><div class="caps dim" style="font-size:10px;letter-spacing:.14em"></div><div style="font-size:14px;line-height:1.4;font-weight:600"></div></div>';
       row.querySelector('.num').textContent = i + 1;
-      row.querySelector('.caps').textContent = f.label;
+      row.querySelector('.caps').textContent = f.required ? f.label : `${f.label} · дополнительно`;
       row.querySelector('.caps + div').textContent = f.text;
       facts.append(row);
     });
-    const tasks = $('#tasks'); tasks.replaceChildren();
-    (state.final.brief || []).forEach((t, i) => {
-      const r = document.createElement('div'); r.style.cssText = 'display:flex;gap:10px;font-size:15px;line-height:1.4;font-weight:600';
-      r.innerHTML = '<span style="opacity:.7"></span><span></span>';
-      r.firstChild.textContent = i + 1 + '.';
-      r.lastChild.textContent = t;
-      tasks.append(r);
-    });
-    $('#task-time').textContent = state.final.task_time || '';
     const w = state.work;
     $('#to-solve').textContent = !w ? 'Предложить решение'
       : w.published ? `Итог: ${w.eval?.total ?? 0} из 100`
