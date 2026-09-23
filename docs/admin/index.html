@@ -13,12 +13,13 @@
 <script>try{var p=localStorage.getItem('bc-palette');if(p)document.documentElement.dataset.palette=p}catch(e){}</script>
 <style>
   html, body { height: 100%; }
-  body { overflow: hidden; }
-  .stage { position: relative; height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: clamp(24px, 4vh, 60px) clamp(20px, 5vw, 80px); text-align: center; gap: clamp(16px, 2.6vh, 34px); }
-  .step { display: none; flex-direction: column; align-items: center; gap: clamp(14px, 2.4vh, 30px); width: 100%; max-width: 1200px; }
+  /* Экран ноутбука бывает низким: если шаг не помещается, страница прокручивается,
+     иначе заголовок и кнопка «Начать игру» оказываются за краем и до них не добраться. */
+  .stage { position: relative; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: clamp(16px, 4vh, 60px) clamp(16px, 5vw, 80px); text-align: center; gap: clamp(12px, 2.6vh, 34px); }
+  .step { display: none; flex-direction: column; align-items: center; gap: clamp(8px, 2.4vh, 30px); width: 100%; max-width: 1200px; }
   .step.on { display: flex; animation: screenIn .6s var(--ease-out) both; }
-  .big-title { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(34px, 6vw, 96px); line-height: .95; letter-spacing: -0.04em; margin: 0; }
+  .big-title { font-family: Unbounded, sans-serif; font-weight: 800; font-size: min(clamp(34px, 6vw, 96px), 13vh); line-height: .95; letter-spacing: -0.04em; margin: 0; }
   .sub { font-size: clamp(15px, 1.5vw, 26px); color: var(--dim); max-width: 26ch; line-height: 1.45; }
   .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: clamp(12px, 1.4vw, 24px); width: 100%; text-align: left; }
   .rule { padding: clamp(18px, 2vw, 32px); border-radius: 24px; display: flex; flex-direction: column; gap: 10px; }
@@ -34,9 +35,21 @@
   .code-card { flex: 1 1 0; min-width: 0; padding: clamp(12px, 1.5vw, 26px) clamp(8px, 1vw, 18px); border-radius: 24px; display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; }
   .code-card .caps { font-size: clamp(10px, .85vw, 15px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .code-card .mini { font-size: clamp(10px, .85vw, 15px); }
-  .code-num { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(30px, 4.6vw, 86px); letter-spacing: .02em; line-height: 1; color: var(--accent); }
+  .code-num { font-family: Unbounded, sans-serif; font-weight: 800; font-size: min(clamp(30px, 4.6vw, 86px), 12vh); letter-spacing: .02em; line-height: 1; color: var(--accent); }
   .qr-card { flex: 0 0 auto; padding: clamp(14px, 1.6vw, 26px); border-radius: 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-  .qr-card svg { width: clamp(240px, 30vw, 460px); height: auto; color: var(--accent); }
+  .qr-card svg { width: min(clamp(190px, 30vw, 460px), 40vh); height: auto; color: var(--accent); }
+  /* Ноутбук с низким экраном: шаг целиком помещается, до кнопок не нужно скроллить */
+  @media (max-height: 800px) {
+    .stage { gap: 8px; padding: 10px clamp(16px, 3vw, 40px); }
+    .big-title { font-size: min(6vw, 9vh); }
+    .code-card { padding: 8px 6px; gap: 2px; }
+    .code-num { font-size: min(4.6vw, 9vh); }
+    .qr-card { padding: 10px; gap: 6px; }
+    .qr-card svg { width: min(30vw, 23vh); }
+    .sub { font-size: clamp(14px, 1.3vw, 20px); }
+    .rule { padding: clamp(12px, 1.4vw, 20px); }
+    .name-card { padding: clamp(10px, 1.2vw, 18px); gap: 8px; }
+  }
   .row-btns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
   .btn-main { width: auto; padding: clamp(14px, 1.4vw, 22px) clamp(28px, 3vw, 56px); font-size: clamp(16px, 1.3vw, 24px); }
   .waiting { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; font-size: clamp(14px, 1.1vw, 20px); color: var(--dim); }

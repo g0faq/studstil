@@ -101,6 +101,16 @@
   @keyframes wPulse { 0%, 100% { transform: scale(1); opacity: .45; } 50% { transform: scale(1.5); opacity: 1; } }
   @keyframes wFlip { 0% { opacity: 0; transform: translateY(6px) scale(.9); filter: blur(4px); } 100% { opacity: 1; transform: none; filter: none; } }
 
+  /* Низкий экран ноутбука: все четыре дорожки должны помещаться без прокрутки */
+  @media (max-height: 800px) {
+    .grid { gap: clamp(6px, 1vh, 14px); }
+    .lane { min-height: clamp(48px, 7.4vh, 80px); padding: clamp(5px, .7vh, 10px) clamp(12px, 1.4vw, 24px); }
+    .track { height: clamp(34px, 5.2vh, 60px); }
+    .who .avatar { width: clamp(28px, 2.4vw, 44px); height: clamp(28px, 2.4vw, 44px); font-size: clamp(12px, 1vw, 18px); }
+    .runner .avatar { width: clamp(30px, 2.6vw, 48px); height: clamp(30px, 2.6vw, 48px); }
+    .bonus { margin-top: 2px; }
+  }
+
   /* Когда снизу появляются панели, дорожки поджимаются, но остаются читаемыми */
   .wrap.dense .grid { gap: clamp(8px, 1.2vh, 18px); }
   .wrap.dense .lane { min-height: clamp(56px, 6.4vh, 98px); padding: clamp(6px, .8vh, 14px) clamp(14px, 1.6vw, 30px); gap: clamp(10px, 1.4vw, 28px); }

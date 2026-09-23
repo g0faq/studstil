@@ -27,7 +27,11 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--ink); font-family: Manrope, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
-html, body { overflow: hidden; overscroll-behavior: none; }
+/* Фоновые пятна вылезают за край — гасим боковую прокрутку. По вертикали ничего не запрещаем:
+   на экранах преподавателя контент бывает выше окна, и кнопки должны оставаться доступными. */
+html, body { overflow-x: clip; overscroll-behavior-x: none; }
+/* Телефонная карточка живёт ровно в экране: прокручиваются только ленты внутри неё */
+body.phone { overflow-y: hidden; overscroll-behavior: none; }
 button { font-family: inherit; cursor: pointer; color: inherit; }
 button:disabled { opacity: .5; cursor: default; }
 .display { font-family: Unbounded, sans-serif; letter-spacing: -0.03em; }
@@ -92,7 +96,14 @@ button:disabled { opacity: .5; cursor: default; }
 /* Карточка */
 #card { padding: 48px 24px 30px; }
 .bar { display: flex; align-items: center; justify-content: space-between; padding-bottom: 18px; }
-.card-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 24px; }
+.card-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; justify-content: center; gap: 24px; scrollbar-width: none; }
+.card-body::-webkit-scrollbar { display: none; }
+/* Низкий экран (клавиатура, маленький телефон): карточка ужимается, «Начать консультацию» остаётся видимой */
+[data-tight] .card-body { justify-content: flex-start; gap: 12px; }
+[data-tight] .ring-wrap .avatar { width: 104px !important; height: 104px !important; font-size: 40px !important; }
+[data-tight] .orbit { display: none; }
+[data-tight] #card .display { font-size: 26px !important; }
+[data-tight] .quote-text { font-size: 17px; }
 .ring-wrap { position: relative; display: flex; justify-content: center; }
 .ring { position: absolute; top: 50%; left: 50%; width: 180px; height: 180px; margin: -90px 0 0 -90px; border-radius: 50%; border: 1px solid var(--accent); animation: bcRing 3s ease-out infinite; }
 .quote { padding: 24px; border-radius: 26px; display: flex; flex-direction: column; gap: 12px; }
@@ -163,6 +174,9 @@ button:disabled { opacity: .5; cursor: default; }
 
 /* Фон: медленные «пятна света», как софтбоксы в студии, + плёночное зерно */
 .blobs { position: absolute; inset: -20%; pointer-events: none; filter: blur(60px); opacity: .55; }
+/* На страницах преподавателя фон делаем неподвижным: иначе он вылезает за край
+   и страница «прокручивается» в пустоту, хотя контент помещается. */
+body:not(.phone) .blobs { position: fixed; }
 .blobs i { position: absolute; width: 55%; aspect-ratio: 1; border-radius: 50%; background: var(--accent-soft); animation: drift 22s var(--ease-out) infinite alternate; }
 .blobs i:nth-child(1) { top: 0; left: -5%; background: var(--glow1); }
 .blobs i:nth-child(2) { bottom: 5%; right: -10%; animation-duration: 28s; animation-delay: -6s; }
