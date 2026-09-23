@@ -40,8 +40,10 @@
     background: var(--glass); border: 1px solid var(--stroke);
     backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   }
+  /* Подсветка пройденного пути гаснет к своему краю: иначе на границе видна вертикальная черта */
   .lane::before { content: ''; position: absolute; inset: 0; width: var(--p); pointer-events: none; border-radius: inherit;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 16%, transparent)); background: linear-gradient(90deg in oklab, transparent, color-mix(in srgb, var(--accent) 16%, transparent));
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 15%, transparent) 62%, transparent);
+    background: linear-gradient(90deg in oklab, transparent, color-mix(in srgb, var(--accent) 15%, transparent) 62%, transparent);
     transition: width 1s var(--ease-out); }
   .lane > * { position: relative; }
   .lane.done { box-shadow: 0 0 0 2px var(--accent), 0 18px 60px color-mix(in srgb, var(--accent) 30%, transparent); }
