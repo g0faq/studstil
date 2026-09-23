@@ -136,6 +136,28 @@
   @keyframes wPulse { 0%, 100% { transform: scale(1); opacity: .45; } 50% { transform: scale(1.5); opacity: 1; } }
   @keyframes wFlip { 0% { opacity: 0; transform: translateY(6px) scale(.9); filter: blur(4px); } 100% { opacity: 1; transform: none; filter: none; } }
 
+  /* Узкий экран (телефон преподавателя): дорожка разворачивается в два ряда —
+     сверху команда и счёт, снизу трасса. В три колонки на такой ширине всё наезжает друг на друга. */
+  @media (max-width: 780px) {
+    .wrap { --u: clamp(11px, 3.4vw, 20px); padding: calc(var(--u) * 1.2) calc(var(--u) * 1.2); }
+    h1 { font-size: calc(var(--u) * 2.1); }
+    .grid { grid-auto-rows: min-content; }
+    .lane { grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: 'who score' 'track track' 'info info';
+      row-gap: calc(var(--u) * .6); align-items: center; }
+    .who { grid-area: who; }
+    /* Правая группа распадается: счёт остаётся у названия, участники и статус уходят под трассу */
+    .right { display: contents; }
+    .score { grid-area: score; }
+    .info { grid-area: info; display: flex; justify-content: flex-start; align-items: center;
+      flex-wrap: wrap; gap: calc(var(--u) * .5); }
+    .info .rrow { justify-content: flex-start; }
+    .wrow { flex-wrap: wrap; }
+    .lane-track { grid-area: track; }
+    .rail { height: calc(var(--u) * 2.6); }
+    .big { font-size: calc(var(--u) * 2.4); }
+  }
+
   /* Низкий экран ноутбука: заголовок и отступы поджимаются, чтобы четыре дорожки помещались целиком */
   @media (max-height: 700px) {
     h1 { font-size: min(4.2vw, 7.4vh); }
