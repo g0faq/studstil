@@ -9,6 +9,6 @@ build:
 run:
   # База и картинки лежат на постоянном диске, иначе прогресс пропадёт при перезапуске
   persistenceMount: /data
-  containerPort: 8080
+  containerPort: 80
   # Amvera запускает файл через node, а не команду npm
   scriptName: src/index.js
