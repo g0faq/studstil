@@ -119,7 +119,7 @@ body { overflow-x: hidden; }
 }
 .r-row.top::before {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(100deg, transparent 22%, color-mix(in srgb, var(--accent) 26%, transparent) 50%, transparent 78%);
+  background: linear-gradient(100deg, transparent 22%, color-mix(in srgb, var(--accent) 26%, transparent) 50%, transparent 78%); background: linear-gradient(100deg in oklab, transparent 22%, color-mix(in srgb, var(--accent) 26%, transparent) 50%, transparent 78%);
   transform: translateX(-100%);
   animation: rShine 1.6s var(--ease-out) 1.1s 2;
 }
@@ -224,7 +224,7 @@ body { overflow-x: hidden; }
 .r-frame { --h: min(60dvh, 700px); position: relative; width: min(100%, 92vw, calc(var(--h) * 2 / 3)); margin-inline: auto; }
 .r-frame::before {
   content: ''; position: absolute; inset: -14%; z-index: 0; pointer-events: none;
-  border-radius: 50%; background: radial-gradient(closest-side, var(--accent), transparent 72%);
+  border-radius: 50%; background: radial-gradient(closest-side, var(--accent), transparent 72%); background: radial-gradient(closest-side in oklab, var(--accent), transparent 72%);
   opacity: .16; filter: blur(46px); transform: scale(.85);
   transition: opacity 1.1s var(--ease-out), transform 1.1s var(--ease-out);
 }
@@ -292,9 +292,9 @@ body { overflow-x: hidden; }
 .r-c-num { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(14px, 1.25vw, 25px); color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -.03em; white-space: nowrap; }
 .r-c-num em { font-style: normal; color: var(--dim); font-size: .72em; }
 .r-c-track { grid-column: 1 / -1; height: clamp(8px, .85vh, 14px); border-radius: 999px; background: var(--chip); overflow: hidden; }
-.r-c-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--g1), var(--g2)); width: var(--w, 0%); transform: scaleX(0); transform-origin: left center; animation: rBar .8s var(--ease-out) both; animation-delay: calc(320ms + var(--i) * 75ms); }
+.r-c-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--g1), var(--g2)); background: linear-gradient(90deg in oklab, var(--g1), var(--g2)); width: var(--w, 0%); transform: scaleX(0); transform-origin: left center; animation: rBar .8s var(--ease-out) both; animation-delay: calc(320ms + var(--i) * 75ms); }
 @keyframes rBar { to { transform: scaleX(1); } }
-.r-c-low .r-c-fill { background: linear-gradient(90deg, var(--g3), var(--g1)); }
+.r-c-low .r-c-fill { background: linear-gradient(90deg, var(--g3), var(--g1)); background: linear-gradient(90deg in oklab, var(--g3), var(--g1)); }
 .r-c-ev { grid-column: 1 / -1; font-size: clamp(11px, .95vw, 18px); color: var(--dim); line-height: 1.5; text-wrap: pretty; }
 
 /* --- Карточки и метки --- */

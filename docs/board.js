@@ -70,16 +70,20 @@
     const lane = el('div', 'lane' + (t.finished ? ' done' : ''));
     lane.style.setProperty('--accent', accentOf(t));
     lane.style.setProperty('--p', (p * 100) + '%');
+    lane.style.setProperty('--n', String(t.total)); // отметки и подписи делят трассу на равные доли
+
+    const photo = (document.documentElement.dataset.palette === 'green' && t.photo_green) || t.photo;
+    const face = () => {
+      const av = el('div', 'avatar');
+      av.textContent = t.letter;
+      if (photo) { const img = new Image(); img.alt = ''; img.onerror = () => img.remove(); img.src = photo; av.append(img); }
+      return av;
+    };
 
     // Кто бежит
     const who = el('div', 'who');
-    const av = el('div', 'avatar');
-    av.textContent = t.letter;
-    const photo = (document.documentElement.dataset.palette === 'green' && t.photo_green) || t.photo;
-    if (photo) { const img = new Image(); img.alt = ''; img.onerror = () => img.remove(); img.src = photo; av.append(img); }
     const wt = el('div', 'who-text');
-    const nm = el('div', 'team-name', t.team);
-    wt.append(nm, el('div', 'dim', `${t.name}, ${t.age} · код ${t.code}`));
+    wt.append(el('div', 'team-name', t.team), el('div', 'dim', `${t.name}, ${t.age} · код ${t.code}`));
     // Доп-сведения: их не требуется находить, но команде они дают преимущество — показываем всем
     if (t.extra && t.extra.length) {
       const bonus = el('div', 'bonus');
@@ -88,40 +92,45 @@
       for (const label of t.extra) bonus.append(el('span', 'bchip' + (was && !had.includes(label) && !reduced ? ' pop' : ''), label));
       wt.append(bonus);
     }
-    who.append(av, wt);
+    who.append(face(), wt);
 
-    // Дорожка с отметками по фактам
-    const track = el('div', 'track');
+    // Трасса: сверху полоса с отметками, снизу подписи фактов — ровно под своими отметками
+    const track = el('div', 'lane-track');
+    const rail = el('div', 'rail');
+    const inner = el('div', 'rail-in');
     const line = el('div', 'line');
-    const fill = el('div', 'line-fill');
-    line.append(fill);
-    const marks = el('div', 'marks');
+    line.append(el('div', 'line-fill'));
+    const dots = el('div', 'dots');
+    const labels = el('div', 'labels');
     t.tags.forEach((g, i) => {
-      const m = el('div', 'mark' + (g.on ? ' on' : '') + (g.on && was && !was.tags[i] ? ' pop' : ''));
-      m.style.left = ((i + 1) / t.total * 100) + '%';
-      m.append(el('i'), el('span', 'mark-label', g.on ? g.label : '• • •'));
-      marks.append(m);
+      const fresh = g.on && was && !was.tags[i];
+      const cell = el('div', 'dot-cell' + (g.on ? ' on' : '') + (fresh && !reduced ? ' pop' : ''));
+      cell.append(el('i'));
+      dots.append(cell);
+      labels.append(el('div', 'lbl' + (g.on ? ' on' : ''), g.on ? g.label : '• • •'));
     });
     const runner = el('div', 'runner');
-    const rav = el('div', 'avatar');
-    rav.textContent = t.letter;
-    if (photo) { const img = new Image(); img.alt = ''; img.onerror = () => img.remove(); img.src = photo; rav.append(img); }
-    runner.append(rav);
+    runner.append(face());
+    inner.append(line, dots, runner);
     const flag = el('div', 'flag');
     flag.innerHTML = ICON_FLAG;
-    track.append(line, marks, runner, flag);
+    rail.append(inner, flag);
+    track.append(rail, labels);
 
-    // Счёт
+    // Счёт, участники и статус работы
+    const right = el('div', 'right');
     const score = el('div', 'score');
     const big = el('span', 'big', was ? was.done : 0);
     score.append(big, el('span', 'score-note', `/${t.total}`));
     countUp(big, was ? was.done : 0, t.done);
-    const right = el('div', 'right');
-    const note = t.finished ? 'финиш' : t.sessions ? `в игре · ${t.sessions}` : 'ждём команду';
+    right.append(score);
+
+    const info = el('div', 'info');
     const meta = el('div', 'rrow');
-    meta.append(el('div', 'caps2', note));
+    meta.append(el('div', 'caps2', t.finished ? 'финиш' : t.sessions ? `в игре · ${t.sessions}` : 'ждём команду'));
     if (t.hints) meta.append(el('div', 'caps2 hints', `подсказок: ${t.hints}`));
-    right.append(score, meta);
+    info.append(meta);
+    right.append(info);
 
     // Статус работы: сдана / считается / оценена / ошибка
     const st = statusOf(w);
@@ -139,7 +148,7 @@
       const sub = imageNote(w);
       if (sub) row.append(el('div', 'wsub', sub));
       row.append(chip);
-      right.append(row);
+      info.append(row);
     }
 
     lane.append(who, track, right);

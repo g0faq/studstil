@@ -44,7 +44,7 @@
     transform: scale(1.05); transition: transform .9s var(--ease-out); }
   .client.in .c-photo img { transform: scale(1); }
   .c-photo::after { content: ''; position: absolute; inset: 0; pointer-events: none;
-    background: linear-gradient(to top, color-mix(in srgb, var(--bg) 72%, transparent) 0%, transparent 38%); }
+    background: linear-gradient(to top, color-mix(in srgb, var(--bg) 72%, transparent) 0%, transparent 38%); background: linear-gradient(to top in oklab, color-mix(in srgb, var(--bg) 72%, transparent) 0%, transparent 38%); }
   .c-photo .code { position: absolute; left: 12px; bottom: 12px; z-index: 2; padding: 7px 12px; border-radius: 999px;
     background: var(--accent); color: #140A02; font-weight: 800; font-size: 13px; letter-spacing: .02em; }
   .c-photo .noimg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -120,7 +120,7 @@
 
   /* ——— полный образ ——— */
   .look { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: clamp(12px, 1.6vw, 22px); }
-  .look .box { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent); }
+  .look .box { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent); background: linear-gradient(160deg in oklab, color-mix(in srgb, var(--accent) 14%, transparent), transparent); }
   .look h3 { display: flex; align-items: center; gap: 8px; }
   .look .n { width: 22px; height: 22px; border-radius: 7px; background: var(--accent); color: #140A02; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
 
@@ -130,14 +130,14 @@
   .rubric-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
   .rubric-head h2 { margin: 0; font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(20px, 2.2vw, 34px); letter-spacing: -.03em; }
   .total-pill { padding: 7px 14px; border-radius: 999px; font-weight: 800; font-size: 14px; color: #140A02;
-    background: linear-gradient(120deg, var(--g1), var(--g2)); }
+    background: linear-gradient(120deg, var(--g1), var(--g2)); background: linear-gradient(120deg in oklab, var(--g1), var(--g2)); }
   .crit { display: flex; flex-direction: column; gap: 10px; }
   .crit-row { display: grid; grid-template-columns: minmax(150px, 210px) minmax(0, 1fr) 62px; gap: 14px; align-items: center;
     padding: 12px 14px; border-radius: 16px; background: var(--chip); border: 1px solid var(--stroke); }
   .crit-row .t { font-weight: 700; font-size: clamp(14px, 1.05vw, 17px); }
   .crit-row .t small { display: block; font-weight: 500; font-size: 12px; color: var(--dim); margin-top: 3px; line-height: 1.35; }
   .meter { height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 9%, transparent); overflow: hidden; }
-  .meter i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--g3), var(--g1), var(--g2));
+  .meter i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--g3), var(--g1), var(--g2)); background: linear-gradient(90deg in oklab, var(--g3), var(--g1), var(--g2));
     transition: width .8s var(--ease-out); }
   .crit-row .pts { text-align: right; font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(16px, 1.5vw, 22px); letter-spacing: -.02em; }
   .crit-row .pts small { display: block; font-family: Manrope, sans-serif; font-weight: 600; font-size: 11px; color: var(--dim); letter-spacing: .04em; }

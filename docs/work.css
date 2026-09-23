@@ -24,7 +24,7 @@
   font-size: 17px; line-height: 1.5; font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent); animation: wkIn .5s var(--ease-out) both .1s; }
 .confirm-text::after { content: ''; position: absolute; left: 20px; top: -1px; width: 46px; height: 3px; border-radius: 999px;
-  background: linear-gradient(90deg, var(--g3), var(--g1), var(--g2)); }
+  background: linear-gradient(90deg, var(--g3), var(--g1), var(--g2)); background: linear-gradient(90deg in oklab, var(--g3), var(--g1), var(--g2)); }
 .confirm-count { font-size: 12px; font-weight: 700; letter-spacing: .04em; }
 .confirm-actions { flex: none; display: flex; gap: 10px; align-items: stretch; padding-top: 4px; }
 .confirm-actions .ghost { width: auto; flex: 0 1 116px; padding: 20px 8px; border-radius: 24px; }
@@ -69,7 +69,7 @@
   animation: wkIn .5s var(--ease-out) both .38s; }
 .pend-bar { height: 4px; border-radius: 999px; background: var(--chip); overflow: hidden; }
 .pend-bar i { display: block; height: 100%; width: 40%; border-radius: 999px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: wkSlide 1.8s var(--ease-out) infinite; }
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); background: linear-gradient(90deg in oklab, transparent, var(--accent), transparent); animation: wkSlide 1.8s var(--ease-out) infinite; }
 @keyframes wkSlide { from { transform: translateX(-110%); } to { transform: translateX(260%); } }
 .wk-text { padding: 18px; border-radius: 22px; background: var(--bg2); border: 1px solid var(--stroke);
   font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; animation: wkIn .4s var(--ease-out) both; }
@@ -110,7 +110,7 @@
 .crit-val b { font-size: 17px; color: var(--accent); }
 .crit-track { height: 7px; border-radius: 999px; background: var(--chip); overflow: hidden; }
 .crit-track i { display: block; height: 100%; width: 0; border-radius: 999px;
-  background: linear-gradient(90deg, var(--g3), var(--g1) 55%, var(--g2));
+  background: linear-gradient(90deg, var(--g3), var(--g1) 55%, var(--g2)); background: linear-gradient(90deg in oklab, var(--g3), var(--g1) 55%, var(--g2));
   transition: width .8s var(--ease-out); transition-delay: calc(.25s + var(--i) * 80ms); }
 #score-criteria.run .crit-track i { width: var(--w); }
 .crit-ev { display: none; font-size: 13px; line-height: 1.45; color: var(--dim); padding-top: 2px; }
@@ -122,10 +122,10 @@
 /* Блок преображения — главный момент финала */
 .wk-reveal { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 26px;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--stroke));
-  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 62%), var(--glass);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 62%), var(--glass); background: linear-gradient(160deg in oklab, color-mix(in srgb, var(--accent) 12%, transparent), transparent 62%), var(--glass);
   backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 22px 60px rgba(0, 0, 0, .28); }
 .wk-reveal-title { font-family: Unbounded, sans-serif; font-weight: 800; font-size: 24px; letter-spacing: -.03em;
-  background: linear-gradient(100deg, var(--g3), var(--g1) 45%, var(--g2), var(--g1) 85%);
+  background: linear-gradient(100deg, var(--g3), var(--g1) 45%, var(--g2), var(--g1) 85%); background: linear-gradient(100deg in oklab, var(--g3), var(--g1) 45%, var(--g2), var(--g1) 85%);
   background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: wkShine 4.5s linear infinite; }
 @keyframes wkShine { from { background-position: 0% 50%; } to { background-position: 220% 50%; } }

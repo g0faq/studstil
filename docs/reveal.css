@@ -50,7 +50,7 @@
   transform: translateX(-50%);
   pointer-events: none;
   opacity: 0;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, white 30%), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, white 30%), transparent); background: linear-gradient(90deg in oklab, transparent, color-mix(in srgb, var(--accent) 55%, white 30%), transparent);
   filter: blur(6px);
   mix-blend-mode: screen;
 }
@@ -64,7 +64,7 @@
   left: var(--pos, 100%);
   width: 2px;
   margin-left: -1px;
-  background: linear-gradient(180deg, transparent, var(--accent) 12%, var(--accent) 88%, transparent);
+  background: linear-gradient(180deg, transparent, var(--accent) 12%, var(--accent) 88%, transparent); background: linear-gradient(180deg in oklab, transparent, var(--accent) 12%, var(--accent) 88%, transparent);
   box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 70%, transparent);
   opacity: 0;
   pointer-events: none;
@@ -126,7 +126,7 @@
   flex-direction: column;
   gap: 10px;
   border: none;
-  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, .55));
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, .55)); background: linear-gradient(180deg in oklab, transparent 40%, rgba(0, 0, 0, .55));
   color: #fff;
   font-family: Unbounded, sans-serif;
   font-weight: 700;
@@ -150,7 +150,7 @@
 .reveal .flash {
   position: absolute;
   inset: 0;
-  background: radial-gradient(60% 50% at 50% 50%, color-mix(in srgb, var(--accent) 45%, white 25%), transparent 70%);
+  background: radial-gradient(60% 50% at 50% 50%, color-mix(in srgb, var(--accent) 45%, white 25%), transparent 70%); background: radial-gradient(60% 50% at 50% 50% in oklab, color-mix(in srgb, var(--accent) 45%, white 25%), transparent 70%);
   opacity: 0;
   pointer-events: none;
   mix-blend-mode: screen;
