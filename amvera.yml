@@ -1,10 +1,13 @@
-# Развёртывание на Amvera: сборка из Dockerfile, постоянный диск под базу.
+# Развёртывание на Amvera. Один процесс отдаёт и сайт, и API — всё с одного домена.
 meta:
-  environment: docker
+  environment: nodejs
   toolchain:
-    name: docker
+    name: npm
+    version: 20
 build:
-  dockerfile: ./Dockerfile
+  skip: false
 run:
+  # База и картинки лежат на постоянном диске, иначе прогресс пропадёт при перезапуске
   persistenceMount: /data
-  containerPort: 80
+  containerPort: 8080
+  scriptName: start
