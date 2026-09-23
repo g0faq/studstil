@@ -80,12 +80,38 @@ export async function getSessionState(sessionId) {
   return scenario ? { session: s, scenario, progress: progressOf(scenario, s.revealed) } : null;
 }
 
+
+/**
+ * Очередь на сессию. У команды несколько телефонов, и два вопроса одновременно
+ * раньше сбивали друг друга: второй ответ не доходил, а открытые факты затирались.
+ * Ждём освобождения замка и только потом идём к модели.
+ */
+async function waitTurn(key, waitMs = 25000, ttl = 45) {
+  const until = Date.now() + waitMs;
+  for (;;) {
+    if (await store.acquireLock(key, ttl)) return true;
+    if (Date.now() >= until) return false; // держатель завис — работаем без очереди, лишь бы ответить
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
 /**
  * Главная функция ядра.
  * → { reply, newly_revealed, progress, finished, final?, error? }
  * error: 'no_session' | 'empty' | 'too_long' | 'rate_limited' | 'already_finished' | 'llm_error'
  */
 export async function handleMessage(sessionId, text, { llm = callPersona, deviceId = null } = {}) {
+  const lockKey = `msg:${sessionId}`;
+  const locked = await waitTurn(lockKey);
+  try {
+    return await runMessage(sessionId, text, { llm, deviceId });
+  } finally {
+    if (locked) await store.releaseLock(lockKey);
+  }
+}
+
+async function runMessage(sessionId, text, { llm, deviceId }) {
+  // Состояние читаем уже внутри очереди: пока ждали, сосед по команде мог открыть факт
   const state = await getSessionState(sessionId);
   if (!state) return { error: 'no_session', reply: null, finished: false };
   const { session, scenario } = state;
@@ -205,6 +231,16 @@ export async function publicState(sessionId) {
 
 /** Команда попросила подсказку. Считается и видна преподавателю. */
 export async function nextTrigger(sessionId) {
+  const lockKey = `msg:${sessionId}`;
+  const locked = await waitTurn(lockKey, 10000);
+  try {
+    return await runTrigger(sessionId);
+  } finally {
+    if (locked) await store.releaseLock(lockKey);
+  }
+}
+
+async function runTrigger(sessionId) {
   const st = await getSessionState(sessionId);
   if (!st) return { error: 'no_session' };
   const game = isTestSession(sessionId) ? null : await getGame();

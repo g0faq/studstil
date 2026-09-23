@@ -788,6 +788,20 @@
     $('#dossier-btn').setAttribute('aria-expanded', String(!d.classList.contains('hidden')));
   };
 
+  // Экранная клавиатура на iOS не уменьшает 100dvh: страница просто уезжает вверх и шапка с лентой
+  // оказываются за кадром. Поэтому держим высоту карточки равной видимой части окна.
+  const vv = window.visualViewport;
+  if (vv) {
+    const fitViewport = () => {
+      document.documentElement.style.setProperty('--vvh', Math.round(vv.height) + 'px');
+      if (window.scrollY) window.scrollTo(0, 0);
+    };
+    vv.addEventListener('resize', fitViewport);
+    vv.addEventListener('scroll', fitViewport);
+    window.addEventListener('orientationchange', () => setTimeout(fitViewport, 250));
+    fitViewport();
+  }
+
   // Старый Safari умеет прокручивать даже overflow: hidden, когда фокус уходит на кнопку у края.
   // Возвращаем экран на место, иначе интерфейс уезжает вбок.
   const appBox = $('#app');

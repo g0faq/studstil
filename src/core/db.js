@@ -13,6 +13,7 @@ export const tidyText = (t) => String(t == null ? '' : t).replace(/[ \t]+$/gm, '
 
 const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const REDIS_TIMEOUT = Number(process.env.REDIS_TIMEOUT_MS) || 10000;
 const REDIS_TCP = process.env.REDIS_URL; // Redis for Vercel: redis://user:pass@host:port или rediss://
 const now = () => new Date().toISOString();
 
@@ -69,32 +70,104 @@ function parseReply(buf, pos) {
   throw new Error('Redis: неизвестный ответ ' + type);
 }
 
-function redisTcp(commands) {
+// Одно живое соединение на процесс. Раньше каждый запрос открывал свой TCP+TLS,
+// и на одно сообщение уходило около десяти рукопожатий: при двух телефонах команды
+// это давало заметную задержку. Теперь команды идут в общий сокет, а ответы
+// раздаются по очереди — RESP гарантирует их порядок.
+let tcpLink = null;
+
+function tcpClose(link, err) {
+  if (tcpLink === link) tcpLink = null;
+  link.dead = true;
+  for (const job of link.jobs.splice(0)) { clearTimeout(job.timer); clearTimeout(job.late); if (!job.dropped) job.reject(err || new Error('Redis: соединение закрыто')); }
+  try { link.sock.destroy(); } catch {}
+}
+
+function tcpOpen() {
   const u = new URL(REDIS_TCP);
-  const pre = [];
-  if (u.password) pre.push(u.username && u.username !== 'default' ? ['AUTH', decodeURIComponent(u.username), decodeURIComponent(u.password)] : ['AUTH', decodeURIComponent(u.password)]);
-  const all = [...pre, ...commands];
-  return new Promise((resolve, reject) => {
-    const opts = { host: u.hostname, port: Number(u.port) || 6379 };
-    const sock = u.protocol === 'rediss:' ? tls.connect({ ...opts, servername: u.hostname }) : net.connect(opts);
-    let buf = Buffer.alloc(0);
-    const replies = [];
-    let pos = 0;
-    sock.setTimeout(10000, () => sock.destroy(new Error('Redis: таймаут')));
-    sock.on(u.protocol === 'rediss:' ? 'secureConnect' : 'connect', () => sock.write(all.map(encode).join('')));
-    sock.on('data', (chunk) => {
-      buf = Buffer.concat([buf, chunk]);
-      let r;
-      while (replies.length < all.length && (r = parseReply(buf, pos))) { replies.push(r.value); pos = r.next; }
-      if (replies.length === all.length) {
-        sock.end();
-        const out = replies.slice(pre.length);
-        const err = replies.find((x) => x instanceof Error);
-        err ? reject(new Error('Redis: ' + err.message)) : resolve(out);
-      }
-    });
-    sock.on('error', reject);
+  const opts = { host: u.hostname, port: Number(u.port) || 6379 };
+  const sock = u.protocol === 'rediss:' ? tls.connect({ ...opts, servername: u.hostname }) : net.connect(opts);
+  sock.setNoDelay(true);
+  sock.setKeepAlive(true, 30000);
+  const link = { sock, jobs: [], buf: Buffer.alloc(0), pos: 0, ready: null, dead: false };
+
+  link.ready = new Promise((resolve, reject) => {
+    sock.once(u.protocol === 'rediss:' ? 'secureConnect' : 'connect', resolve);
+    sock.once('error', reject);
   });
+
+  sock.on('data', (chunk) => {
+    // Дочитанное отбрасываем, остаток склеиваем с новым куском: ответ может прийти по частям
+    link.buf = link.pos === link.buf.length ? chunk : Buffer.concat([link.buf.subarray(link.pos), chunk]);
+    link.pos = 0;
+    let r;
+    while (link.jobs.length && (r = parseReply(link.buf, link.pos))) {
+      link.pos = r.next;
+      const job = link.jobs[0];
+      job.replies.push(r.value);
+      if (job.replies.length === job.need) {
+        link.jobs.shift();
+        clearTimeout(job.timer);
+        clearTimeout(job.late);
+        if (job.dropped) continue; // запрос уже отвалился по таймауту, ответ просто вычитали
+        const err = job.replies.find((x) => x instanceof Error);
+        err ? job.reject(new Error('Redis: ' + err.message)) : job.resolve(job.replies);
+      }
+    }
+  });
+  sock.on('error', (e) => tcpClose(link, new Error('Redis: ' + e.message)));
+  sock.on('close', () => tcpClose(link));
+
+  // Пароль отправляем первым же делом — ответ на AUTH забирает отдельная задача
+  const pre = [];
+  if (u.password) pre.push(u.username && u.username !== 'default'
+    ? ['AUTH', decodeURIComponent(u.username), decodeURIComponent(u.password)]
+    : ['AUTH', decodeURIComponent(u.password)]);
+  link.hello = link.ready.then(() => {
+    if (!pre.length) return;
+    const p = tcpSend(link, pre);
+    sock.write(pre.map(encode).join(''));
+    return p;
+  });
+  // Отказ соединения заберёт тот, кто его ждёт; здесь глушим «необработанное отклонение»
+  link.ready.catch(() => {});
+  link.hello.catch(() => {});
+  return link;
+}
+
+function tcpSend(link, commands) {
+  return new Promise((resolve, reject) => {
+    const job = { need: commands.length, replies: [], resolve, reject, timer: null, late: null, dropped: false };
+    job.timer = setTimeout(() => {
+      // Ответ не пришёл вовремя. Из очереди задачу не убираем: её ответ ещё может прийти,
+      // и он должен быть вычитан, иначе следующему запросу достанется чужой ответ.
+      job.dropped = true;
+      reject(new Error('Redis: таймаут'));
+      job.late = setTimeout(() => { if (link.jobs.includes(job)) tcpClose(link, new Error('Redis: нет ответа')); }, REDIS_TIMEOUT);
+    }, REDIS_TIMEOUT);
+    link.jobs.push(job);
+  });
+}
+
+async function redisTcpOnce(commands) {
+  if (!tcpLink || tcpLink.dead || tcpLink.sock.destroyed) tcpLink = tcpOpen();
+  const link = tcpLink;
+  await link.ready;
+  await link.hello;
+  if (link.dead) throw new Error('Redis: соединение закрыто');
+  const p = tcpSend(link, commands);
+  link.sock.write(commands.map(encode).join(''));
+  return p;
+}
+
+async function redisTcp(commands) {
+  try {
+    return await redisTcpOnce(commands);
+  } catch (e) {
+    // Провайдер закрывает простаивающие соединения: одну повторную попытку делаем молча
+    if (tcpLink) tcpClose(tcpLink);
+    return redisTcpOnce(commands);
+  }
 }
 
 // Ключи: s:<id> — сессия (JSON), active — множество id, h:<id> — история активной сессии,

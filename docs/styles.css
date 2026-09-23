@@ -27,6 +27,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--ink); font-family: Manrope, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+html, body { overflow: hidden; overscroll-behavior: none; }
 button { font-family: inherit; cursor: pointer; color: inherit; }
 button:disabled { opacity: .5; cursor: default; }
 .display { font-family: Unbounded, sans-serif; letter-spacing: -0.03em; }
@@ -35,8 +36,8 @@ button:disabled { opacity: .5; cursor: default; }
 
 /* Каркас телефона: на мобиле во весь экран, на десктопе — по центру */
 /* overflow: clip — чтобы фокус на кнопке не прокручивал весь экран вбок: фоновые пятна выходят за край */
-.app { position: relative; height: 100dvh; max-width: 480px; margin: 0 auto; overflow: hidden; overflow: clip; background: var(--bg2); display: flex; flex-direction: column; }
-@media (min-width: 560px) { body { padding: 24px 0; } .app { height: min(860px, calc(100dvh - 48px)); border-radius: 42px; box-shadow: var(--shadow); border: 1px solid var(--stroke); } }
+.app { position: relative; height: var(--vvh, 100dvh); max-width: 480px; margin: 0 auto; overflow: hidden; overflow: clip; background: var(--bg2); display: flex; flex-direction: column; }
+@media (min-width: 560px) { body { padding: 24px 0; } .app { height: min(860px, calc(var(--vvh, 100dvh) - 48px)); border-radius: 42px; box-shadow: var(--shadow); border: 1px solid var(--stroke); } }
 .glow { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 60% at 12% -8%, var(--accent-soft) 0%, transparent 62%), radial-gradient(90% 50% at 100% 104%, var(--accent-soft) 0%, transparent 58%); }
 .screen { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; animation: bcFade .45s ease both; }
 .hidden { display: none !important; }
