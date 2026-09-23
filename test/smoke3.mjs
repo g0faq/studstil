@@ -8,9 +8,9 @@ const a = (c, m) => { if (!c) { console.error('FAIL', m); process.exit(1); } con
 const mock = (ids) => async () => ({ reply: 'р', revealed_fact_ids: ids });
 
 a((await E.enterCode('101', 'd0')).ok, 'без игры работают коды сценариев');
-const g = await E.createGame(['Акварель', '', 'Стиль']);
-a(g.phase === 'lobby' && g.teams.length === 3, 'игра создана в лобби');
-a(new Set(g.teams.map((t) => t.code)).size === 3 && g.teams.every((t) => /^\d{4}$/.test(t.code)), 'три разных 4-значных кода');
+const g = await E.createGame(['Акварель', '', 'Стиль', 'Ракурс']);
+a(g.phase === 'lobby' && g.teams.length === 4, 'игра создана в лобби на четыре команды');
+a(new Set(g.teams.map((t) => t.code)).size === 4 && g.teams.every((t) => /^\d{4}$/.test(t.code)), 'четыре разных 4-значных кода');
 a(g.teams[1].name === 'Команда 2', 'пустое название заменено на «Команда 2»');
 a(!(await E.enterCode('101', 'd0')).ok, 'во время игры коды сценариев не работают');
 const t1 = (await E.enterCode(g.teams[0].code, 'd1')).sessionId;
@@ -21,7 +21,7 @@ a((await E.handleMessage(t1, 'привет', { llm: mock([]) })).error === 'not_
 await E.startGame();
 const ps = await E.publicState(t1);
 a(ps.phase === 'running' && ps.messages.length === 1, 'после старта видно приветствие');
-a(!(await E.handleMessage(t1, 'Ты работаешь?', { llm: mock(['new_job']) })).error, 'после старта чат работает');
+a(!(await E.handleMessage(t1, 'Ты работаешь?', { llm: mock(['o1']) })).error, 'после старта чат работает');
 a((await E.boardState())[0].team === 'Акварель', 'на табло название команды');
 a((await E.boardState())[0].code === g.teams[0].code, 'на табло код игры');
 const g2 = await E.createGame(['A', 'B', 'C']);

@@ -3,9 +3,20 @@
   "buildCommand": "mkdir -p .vercel-static && echo ok > .vercel-static/index.txt",
   "outputDirectory": ".vercel-static",
   "installCommand": "npm ci --omit=optional",
-  "regions": ["fra1"],
+  "regions": [
+    "fra1"
+  ],
   "functions": {
-    "api/index.js": { "maxDuration": 30, "includeFiles": "scenarios/**" }
+    "api/index.js": {
+      "maxDuration": 300,
+      "includeFiles": "scenarios/**",
+      "memory": 1024
+    }
   },
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }]
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    }
+  ]
 }

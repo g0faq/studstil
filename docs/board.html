@@ -18,10 +18,11 @@
   h1 { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(30px, 4.2vw, 68px); line-height: 1; letter-spacing: -0.035em; margin: 0; }
   .timer { font-size: clamp(14px, 1.2vw, 22px); font-weight: 700; color: var(--dim); background: none; border: none; white-space: nowrap; }
   .timer b { color: var(--neon); font-family: Unbounded, sans-serif; font-size: clamp(22px, 2.4vw, 44px); }
-  .grid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: clamp(12px, 2vh, 28px); }
+  .grid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: clamp(12px, 2vh, 28px);
+    overflow: hidden auto; scrollbar-width: thin; }
 
   /* Дорожка команды */
-  .lane { --accent: #FF7A1A; --p: 0%; position: relative; flex: 1; min-height: 0; display: grid;
+  .lane { --accent: #FF7A1A; --p: 0%; position: relative; flex: 1; min-height: clamp(64px, 8vh, 120px); display: grid;
     grid-template-columns: minmax(180px, 20%) 1fr auto; align-items: center; gap: clamp(14px, 2vw, 40px);
     padding: clamp(12px, 1.6vh, 26px) clamp(16px, 1.8vw, 34px); border-radius: clamp(18px, 1.8vw, 30px);
     background: var(--glass); border: 1px solid var(--stroke); backdrop-filter: blur(18px); overflow: hidden; }
@@ -59,7 +60,8 @@
   .flag svg { width: 100%; height: auto; display: block; }
   .lane.done .flag { color: var(--accent); transform: translateY(-50%) scale(1.12); }
 
-  .right { text-align: right; }
+  .right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+  .rrow { display: flex; align-items: center; justify-content: flex-end; gap: clamp(6px, .6vw, 12px); flex-wrap: wrap; }
   .score { display: flex; align-items: baseline; gap: 4px; justify-content: flex-end; line-height: .85; }
   .big { font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(34px, 4.4vw, 88px); letter-spacing: -.05em; color: var(--accent); }
   .score-note { font-family: Unbounded, sans-serif; font-weight: 600; font-size: clamp(14px, 1.3vw, 26px); color: var(--dim); }
@@ -68,13 +70,116 @@
 
   .ic { width: 1.15em; height: 1.15em; vertical-align: -.2em; margin-right: .35em; }
   .tools a.pill { text-decoration: none; }
-  .tools { flex: none; display: flex; gap: 10px; align-items: center; font-size: clamp(11px, .9vw, 16px); }
+  .tools { flex: none; display: flex; gap: 10px; align-items: center; font-size: clamp(11px, .9vw, 16px); flex-wrap: wrap; }
   .pill.danger { border-color: color-mix(in srgb, var(--err) 55%, transparent); color: var(--err); }
   .pill.danger:hover { background: color-mix(in srgb, var(--err) 14%, transparent); }
   .lane.enter { animation: riseIn .6s var(--ease-out) both; animation-delay: calc(var(--i) * 110ms); }
   .lane.bump { animation: bumpLane 1s var(--ease-out); }
   @keyframes bumpLane { 0% { box-shadow: 0 0 0 0 transparent; } 30% { box-shadow: 0 0 0 2px var(--accent), 0 0 50px color-mix(in srgb, var(--accent) 45%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
-  @media (prefers-reduced-motion: reduce) { .runner, .line-fill, .lane::before { transition: none; } }
+
+  /* --- Статус работы на дорожке --- */
+  .wstat { display: inline-flex; align-items: center; gap: .5em; max-width: 100%;
+    padding: .34em .78em; border-radius: 99px; border: 1px solid var(--stroke); background: var(--chip);
+    font-size: clamp(10px, .82vw, 16px); font-weight: 800; line-height: 1.25; color: var(--dim); white-space: nowrap;
+    transition: color .35s var(--ease-out), background .35s var(--ease-out), border-color .35s var(--ease-out), box-shadow .35s var(--ease-out); }
+  .wstat .dot { flex: none; width: .58em; height: .58em; border-radius: 50%; background: currentColor; }
+  .wstat.sent { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .wstat.busy { color: var(--neon); border-color: color-mix(in srgb, var(--neon) 50%, transparent); background: color-mix(in srgb, var(--neon) 12%, transparent); }
+  .wstat.busy .dot { animation: wPulse 1.15s ease-in-out infinite; }
+  .wstat.ok { color: #140A02; border-color: transparent; background: linear-gradient(100deg, var(--g3) -12%, var(--g1) 45%, var(--g2) 118%); box-shadow: 0 6px 24px var(--glow1s); }
+  .wstat.bad { color: var(--err); border-color: color-mix(in srgb, var(--err) 55%, transparent); background: color-mix(in srgb, var(--err) 12%, transparent); }
+  .wstat.flip { animation: wFlip .5s var(--ease-spring) both; }
+  .wsub { font-size: clamp(9px, .7vw, 13px); font-weight: 700; color: var(--dim); letter-spacing: .04em; white-space: nowrap; }
+  @keyframes wPulse { 0%, 100% { transform: scale(1); opacity: .45; } 50% { transform: scale(1.5); opacity: 1; } }
+  @keyframes wFlip { 0% { opacity: 0; transform: translateY(6px) scale(.9); filter: blur(4px); } 100% { opacity: 1; transform: none; filter: none; } }
+
+  /* Когда снизу появляются панели, дорожки поджимаются, но остаются читаемыми */
+  .wrap.dense .grid { gap: clamp(8px, 1.2vh, 18px); }
+  .wrap.dense .lane { min-height: clamp(56px, 6.4vh, 98px); padding: clamp(6px, .8vh, 14px) clamp(14px, 1.6vw, 30px); gap: clamp(10px, 1.4vw, 28px); }
+  .wrap.dense .track { height: clamp(40px, 4.4vh, 70px); }
+  .wrap.dense .who .avatar { width: clamp(30px, 2.6vw, 50px); height: clamp(30px, 2.6vw, 50px); font-size: clamp(13px, 1.1vw, 20px); }
+  .wrap.dense .runner .avatar { width: clamp(32px, 2.8vw, 54px); height: clamp(32px, 2.8vw, 54px); font-size: clamp(13px, 1.1vw, 21px); }
+  .wrap.dense .team-name { font-size: clamp(14px, 1.2vw, 23px); }
+  .wrap.dense .big { font-size: clamp(26px, 3.1vw, 62px); }
+  .wrap.dense .score-note { font-size: clamp(12px, 1vw, 20px); }
+  .wrap.dense .mark-label { font-size: clamp(9px, .72vw, 14px); top: calc(50% + clamp(9px, .9vw, 15px)); }
+  /* Правая колонка разворачивается в строку: счёт, участники, статус работы */
+  .wrap.dense .right { flex-direction: row-reverse; align-items: center; gap: clamp(8px, 1vw, 20px); }
+  .wrap.dense .right > .rrow { flex-direction: column; align-items: flex-end; gap: 3px; }
+
+  /* --- Складные панели преподавателя --- */
+  .panel { flex: none; border-radius: clamp(14px, 1.4vw, 22px); border: 1px solid var(--stroke); background: var(--glass);
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); overflow: hidden; }
+  .panel.in { animation: panelIn .5s var(--ease-out) both; }
+  @keyframes panelIn { from { opacity: 0; transform: translateY(12px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+  .panel-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: clamp(8px, 1vh, 13px) clamp(12px, 1.2vw, 20px);
+    background: none; border: none; text-align: left; font-size: clamp(11px, .85vw, 16px); }
+  .panel-head:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .panel-title { font-family: Unbounded, sans-serif; font-weight: 700; letter-spacing: -.01em; }
+  .panel-note { color: var(--dim); font-weight: 700; font-size: .9em; }
+  .chev { width: 1.1em; height: 1.1em; margin-left: auto; color: var(--dim); transition: transform .35s var(--ease-spring); }
+  .panel.shut .chev { transform: rotate(-90deg); }
+  .panel-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .4s var(--ease-out), opacity .3s var(--ease-out); }
+  .panel.shut .panel-body { grid-template-rows: 0fr; opacity: 0; }
+  .panel-inner { overflow: hidden auto; max-height: 22vh; scrollbar-width: thin; }
+  /* Когда обе панели раскрыты, они уступают место дорожкам и листаются сами */
+  .wrap.dense .panel-inner { max-height: 15vh; }
+  .panel-pad { padding: 0 clamp(12px, 1.2vw, 20px) clamp(10px, 1.2vh, 16px); display: flex; flex-direction: column; gap: 6px; }
+
+  /* Строка управления работой */
+  .wrow { --accent: #FF7A1A; display: flex; align-items: center; gap: clamp(6px, .7vw, 12px); padding: 5px 0;
+    font-size: clamp(11px, .85vw, 16px); animation: riseIn .45s var(--ease-out) both; animation-delay: calc(var(--i) * 60ms); }
+  .wrow + .wrow { border-top: 1px solid var(--stroke); }
+  .wrow .bead { flex: none; width: .7em; height: .7em; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .wrow .nm { font-weight: 800; white-space: nowrap; }
+  .wrow .meta { color: var(--dim); font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wrow .gap { flex: 1; min-width: 8px; }
+  .mini { padding: 6px 10px; font-size: clamp(10px, .75vw, 14px); border-radius: 11px; white-space: nowrap;
+    transition: transform .25s var(--ease-spring), background .25s, border-color .25s, color .25s; }
+  .mini:hover:not(:disabled) { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 60%, transparent); color: var(--accent); }
+  .mini:active:not(:disabled) { transform: translateY(0) scale(.96); }
+  .mini.working { color: var(--neon); border-color: color-mix(in srgb, var(--neon) 55%, transparent); }
+  .mini.working::after { content: ''; display: inline-block; width: .85em; height: .85em; margin-left: .5em; vertical-align: -.12em;
+    border-radius: 50%; border: 2px solid color-mix(in srgb, var(--neon) 35%, transparent); border-top-color: var(--neon); animation: wSpin .7s linear infinite; }
+  @keyframes wSpin { to { transform: rotate(360deg); } }
+  /* Короткий ответ прямо на кнопке */
+  .mini.done { color: var(--neon); border-color: color-mix(in srgb, var(--neon) 60%, transparent); background: color-mix(in srgb, var(--neon) 14%, transparent); }
+  .mini.fail { color: var(--err); border-color: color-mix(in srgb, var(--err) 60%, transparent); background: color-mix(in srgb, var(--err) 14%, transparent); }
+  .mini.done, .mini.fail { opacity: 1; animation: miniFlash .4s var(--ease-spring) both; }
+  @keyframes miniFlash { from { transform: scale(.92); } to { transform: none; } }
+
+  /* Технические данные */
+  .tstats { display: flex; flex-wrap: wrap; gap: clamp(10px, 1.4vw, 26px); padding-bottom: 6px; }
+  .tstat b { display: block; font-family: Unbounded, sans-serif; font-weight: 800; font-size: clamp(15px, 1.3vw, 26px); line-height: 1.05; }
+  .tstat span { font-size: clamp(9px, .7vw, 13px); color: var(--dim); font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .tline { font-size: clamp(10px, .8vw, 15px); color: var(--dim); font-weight: 700; line-height: 1.5; }
+  .tline b { color: var(--ink); }
+  .terr { color: var(--err); font-weight: 700; font-size: clamp(10px, .8vw, 15px); line-height: 1.5; }
+
+  .pill.go { border-color: transparent; color: #140A02; font-weight: 800;
+    background: linear-gradient(100deg, var(--g3) -10%, var(--g1) 45%, var(--g2) 115%); box-shadow: 0 8px 26px var(--glow1s);
+    transition: transform .28s var(--ease-spring), box-shadow .28s var(--ease-out); }
+  .pill.go:hover:not(:disabled) { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 34px var(--glow1); }
+  .pill.go:active:not(:disabled) { transform: scale(.97); }
+
+  /* Короткое сообщение о результате */
+  .toast { position: fixed; left: 50%; bottom: clamp(18px, 3vh, 40px); z-index: 20; max-width: min(78vw, 640px);
+    padding: 12px 20px; border-radius: 18px; background: var(--bg2); border: 1px solid var(--stroke); box-shadow: var(--shadow);
+    font-size: clamp(12px, .95vw, 18px); font-weight: 700; text-align: center;
+    opacity: 0; transform: translate(-50%, 18px) scale(.96); pointer-events: none;
+    transition: opacity .3s var(--ease-out), transform .4s var(--ease-spring); }
+  .toast.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  .toast.bad { color: var(--err); border-color: color-mix(in srgb, var(--err) 50%, transparent); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .runner, .line-fill, .lane::before, .panel-body, .wstat, .mini, .pill.go, .toast, .chev, .mark i { transition: none; }
+    .lane.enter, .lane.bump, .panel.in, .wrow, .wstat.flip { animation: none; opacity: 1; transform: none; filter: none; }
+    .mark.pop i { animation: none; }
+    .wstat.busy .dot { animation: none; opacity: 1; }
+    .mini.working::after { display: none; }
+    .mini.done, .mini.fail { animation: none; transform: none; }
+    .mini:hover:not(:disabled), .mini:active:not(:disabled), .pill.go:hover:not(:disabled), .pill.go:active:not(:disabled) { transform: none; }
+  }
   .login { max-width: 420px; margin: 12vh auto; display: flex; flex-direction: column; gap: 12px; }
   .login input { padding: 16px 18px; border-radius: 18px; color: var(--ink); font-size: 16px; font-family: inherit; }
 </style>
@@ -94,15 +199,35 @@
     <div class="timer" id="timer">Осталось <b id="time">--:--</b></div>
   </div>
   <div class="grid" id="grid"></div>
+
+  <section class="panel hidden" id="works" aria-label="Управление работами">
+    <button class="panel-head" id="works-toggle" type="button" aria-expanded="true" aria-controls="works-body">
+      <span class="panel-title">Работы команд</span>
+      <span class="panel-note" id="works-note"></span>
+      <svg class="chev" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="panel-body" id="works-body"><div class="panel-inner"><div class="panel-pad" id="works-list"></div></div></div>
+  </section>
+
+  <section class="panel shut hidden" id="tech" aria-label="Технические данные">
+    <button class="panel-head" id="tech-toggle" type="button" aria-expanded="false" aria-controls="tech-body">
+      <span class="panel-title">Технические данные</span>
+      <span class="panel-note" id="tech-note"></span>
+      <svg class="chev" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="panel-body" id="tech-body"><div class="panel-inner"><div class="panel-pad" id="tech-list"></div></div></div>
+  </section>
+
   <div class="tools">
     <span class="dim" id="updated"></span>
     <span style="flex:1"></span>
-    <a class="pill" href="method/" target="_blank" rel="noopener">Разбор клиенток</a>
-    <button class="pill" id="reset-btn" type="button">Сбросить прогресс</button>
     <button class="pill danger" id="end-btn" type="button">Завершить игру</button>
+    <button class="pill go" id="publish-btn" type="button">Показать результаты</button>
   </div>
 </div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="config.js"></script>
 <script src="board.js"></script>
+<script src="admin-tools.js"></script>
 </body>
 </html>

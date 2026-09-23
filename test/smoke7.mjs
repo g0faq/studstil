@@ -7,7 +7,7 @@ const E = await import(R+'/core/engine.js');
 await useSqlite(':memory:'); config.rateLimitMs = 0;
 const a=(c,m,x='')=>{if(!c){console.error('FAIL',m,x);process.exit(1)}console.log('ok',m)};
 const mock=(ids)=>async()=>({reply:'р',revealed_fact_ids:ids});
-const judge=async()=>({score:8,verdict:'ок',strengths:['a'],missed:[]});
+
 
 // первая игра: 3 вопроса
 let g = await E.createGame(['Первая','Б','В']); await E.startGame();
@@ -18,9 +18,9 @@ a((await E.resultsState()).teams.find(t=>t.team==='Первая').questions === 
 // вторая игра: логи прошлой не должны попасть в статистику
 g = await E.createGame(['Вторая','Б','В']); await E.startGame();
 sid = (await E.enterCode(g.teams[0].code,'d1')).sessionId;
-await E.handleMessage(sid,'только один вопрос',{ llm: mock(['new_job']) });
-await E.submitSolution(sid,'Решение новой игры, достаточно длинное для проверки сервером.',{ llm: judge });
+await E.handleMessage(sid,'только один вопрос',{ llm: mock(['o1']) });
+await E.submitSolution(sid,'Одежда: жакет. Волосы: длина сохранена. Макияж: лёгкий тон и брови. Решение новой игры.');
 const t = (await E.resultsState()).teams.find(x=>x.team==='Вторая');
 a(t.questions === 1, 'во второй игре только её вопросы', 'стало '+t.questions);
-a(t.minutes !== null && t.minutes < 5, 'время считается от старта текущей игры', 'минут: '+t.minutes);
-a(t.facts.find(f=>f.label==='Повод').at !== null, 'у факта есть минута раскрытия');
+a(t.work_minutes !== null && t.work_minutes < 5, 'время считается от старта текущей игры', 'минут: '+t.work_minutes);
+a(t.facts.find(f=>f.label==='Контекст').at !== null, 'у факта есть минута раскрытия');

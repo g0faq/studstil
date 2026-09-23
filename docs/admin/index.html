@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="rules.css">
 <script>try{var p=localStorage.getItem('bc-palette');if(p)document.documentElement.dataset.palette=p}catch(e){}</script>
 <style>
   html, body { height: 100%; }
@@ -79,14 +80,34 @@
   <!-- 2. Правила -->
   <section class="step" id="s-rules">
     <h1 class="big-title">Правила игры</h1>
-    <div class="rules">
-      <div class="rule glass"><b>1</b><span>Команда получает код и заходит к своей клиентке с телефона.</span></div>
-      <div class="rule glass"><b>2</b><span>Клиентка не говорит главного сама. Она отвечает только на точные вопросы.</span></div>
-      <div class="rule glass"><b>3</b><span>Нужно раскрыть 4 факта: повод, привычки, ограничения и то, чего клиентка боится.</span></div>
-      <div class="rule glass"><b>4</b><span>Кто первым раскрывает все факты — получает задание и собирает образ офлайн.</span></div>
+
+    <div class="dm-wrap" id="dm-wrap">
+      <div class="dm-side">
+        <div class="dm-kicker" id="dm-kicker">Сцена 1 из 5</div>
+        <h2 class="dm-title" id="dm-title">Вход по коду</h2>
+        <p class="dm-text" id="dm-text"></p>
+        <div class="dm-dots" id="dm-dots"></div>
+        <div class="dm-ctl">
+          <button class="pill" id="dm-toggle" type="button">Пауза</button>
+          <button class="pill" id="dm-restart" type="button">Сначала</button>
+        </div>
+        <div class="dm-note" id="dm-note" hidden>Показ остановлен: в системе выключены анимации. Листайте кадры точками.</div>
+      </div>
+
+      <div class="dm-phone" id="dm-phone" aria-hidden="true">
+        <div class="dm-screen">
+          <div class="dm-status"><span>10:24</span><span><i class="dm-sig"></i><i class="dm-wifi"></i><i class="dm-bat"></i></span></div>
+          <div id="dm-stage" style="display:contents"></div>
+        </div>
+        <div class="dm-notch"></div>
+      </div>
     </div>
+
+    <div class="rules" id="dm-still" hidden></div>
+
     <div class="row-btns">
       <button class="pill" data-go="s-splash" type="button">Назад</button>
+      <button class="pill" id="dm-skip" type="button">Пропустить показ</button>
       <button class="btn-main btn-grad" data-go="s-names" type="button">Дальше</button>
     </div>
   </section>
@@ -122,5 +143,6 @@
 </div>
 <script src="../config.js"></script>
 <script src="admin.js"></script>
+<script src="../admin-tools.js"></script>
 </body>
 </html>

@@ -12,6 +12,8 @@
   let deviceId = store.get('bc-device');
   if (!deviceId) { deviceId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)); store.set('bc-device', deviceId); }
   let syncTimer = null;
+  let jobsTimer = null; // пока считают оценку и картинку, дёргаем двигатель фоновых задач
+  let revealComp = null; // смонтированный компонент «до / после»
   let tick = null, tBase = null; // отсчёт времени: сервер — источник истины
   let state = null;
   let busy = false;
@@ -24,6 +26,9 @@
     unlock: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 9V6.6A4 4 0 0 1 13.6 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3.2" y="9" width="13.6" height="8.4" rx="2.6" fill="currentColor"/><circle cx="10" cy="13.2" r="1.5" fill="var(--bg2)"/></svg>',
     spark: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 1.6l1.9 5.1 5.1 1.9-5.1 1.9L10 15.6l-1.9-5.1L3 8.6l5.1-1.9z" fill="currentColor"/><circle cx="16.4" cy="15.2" r="1.8" fill="currentColor" opacity=".7"/><circle cx="4.2" cy="14.6" r="1.2" fill="currentColor" opacity=".5"/></svg>',
     done: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="currentColor" opacity=".18"/><path d="M5.6 10.4l2.9 2.9 5.9-6.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    clock: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 5.4V10l3.2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    spin: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".25"/><path d="M18 10a8 8 0 0 0-8-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    warn: '<svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 5.8v5.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="10" cy="14.3" r="1.15" fill="currentColor"/></svg>',
   };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const hits = new Set(); // индексы сообщений, раскрывших факт (для обводки)
@@ -52,10 +57,21 @@
   paintTheme();
 
   // --- Навигация ---
+  // Путь работы команды: пишем разбор → проверяем → ждём → смотрим итог
+  // Результат показываем, только когда оценка готова; иначе — экран обработки
+  const resultReady = (w) => !!(w && w.published && w.eval && w.eval_status === 'done');
+  const workScreen = () => (!state?.work ? 'solve' : resultReady(state.work) ? 'score' : 'pending');
+
   function go(screen) {
     for (const el of document.querySelectorAll('.screen')) el.classList.toggle('hidden', el.id !== screen);
+    // Экранная клавиатура телефона прокручивает всю карточку: на новом экране возвращаем её наверх,
+    // иначе шапка следующего экрана окажется срезанной.
+    $('#app').scrollTop = 0;
+    const sec = document.getElementById(screen);
+    if (sec) for (const el of sec.querySelectorAll('div')) { if (el.id !== 'msgs' && el.scrollTop) el.scrollTop = 0; }
     clearInterval(waitTimer);
     clearInterval(syncTimer);
+    clearInterval(jobsTimer);
     if (screen === 'chat') {
       scrollDown();
       setTimeout(() => $('#q').focus({ preventScroll: true }), 50);
@@ -65,10 +81,13 @@
     if (screen === 'solve' || screen === 'done' || screen === 'score') syncTimer = setInterval(syncTeam, 5000);
     if (screen === 'done') renderDone();
     if (screen === 'solve') {
-      $('#solve-problem').textContent = state?.final?.problem || '';
+      $('#solve-problem').textContent = state?.final?.message || '';
       countChars();
       setTimeout(() => $('#solution').focus({ preventScroll: true }), 80);
     }
+    if (screen === 'confirm') renderConfirm();
+    if (screen === 'pending') { renderPending(); jobsTimer = setInterval(pumpJobs, 3000); }
+    if (screen === 'score' && !jobsSettled(state?.work)) jobsTimer = setInterval(pumpJobs, 3000);
     if (screen === 'score') renderScore();
   }
 
@@ -85,7 +104,7 @@
       const r = await api('/api/session', { code, deviceId });
       if (mark !== entering) return; // пока ждали ответ, ввели другой код
       sessionId = r.sessionId; store.set('bc-session', sessionId);
-      hits.clear(); extra.length = 0; shown = 0;
+      hits.clear(); extra.length = 0; shown = 0; draft = ''; scoreVersion = null; revealSig = null; $('#jobs').dataset.sig = '';
       apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : 'card');
     } catch (err) {
       $('#code-err').textContent = err.message;
@@ -136,13 +155,56 @@
       const r = await api('/api/session?id=' + encodeURIComponent(sessionId));
       if (!state || (r.state.rev === state.rev && r.state.timer?.stage === state.timer?.stage)) { if (r.state.timer) applyTimer(r.state.timer); return; }
       const wasFinished = state.finished;
+      const hadWork = !!state.work;
+      const wasPublished = !!state.work?.published;
       apply(r.state);
       renderMsgs();
-      if (state.solution && !wasFinished) go('score');
+      // Работу мог сдать одноклассник с другого телефона, а итоги открыть преподаватель
+      if (resultReady(state.work) && !wasPublished) go('score');
+      else if (state.work && !hadWork) go('pending');
       else if (state.finished && !wasFinished) go('done');
+      else {
+        // Ничего не переключаем, но открытый экран перерисовываем: баллы мог поправить преподаватель
+        const open = document.querySelector('.screen:not(.hidden)')?.id;
+        if (open === 'score' && resultReady(state.work)) renderScore();
+        else if (open === 'pending' && state.work) renderPending();
+      }
     } catch (e) { if (e.status === 404) resetToStart(); }
   }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('#chat').classList.contains('hidden')) syncTeam(); });
+
+  // --- Двигатель фоновых задач ---
+  const JOB_OVER = new Set(['done', 'error', 'skipped']);
+  const jobsSettled = (w) => !w || (JOB_OVER.has(w.eval_status) && JOB_OVER.has(w.image_status));
+
+  async function pumpJobs() {
+    if (!sessionId || document.hidden) return;
+    const w = state?.work;
+    // Останавливаемся, когда результат готов, а не когда итоги «опубликованы»:
+    // в тестовом прогоне публикация включена сразу, но задачи ещё не посчитаны
+    if (resultReady(w)) { clearInterval(jobsTimer); if (!$('#pending').classList.contains('hidden')) go('score'); return; }
+    try {
+      // Пока задачи в работе — крутим двигатель; когда всё посчитано, ждём публикацию
+      // итогов дешёвым опросом состояния: иначе экран «Работа сдана» завис бы навсегда
+      const r = jobsSettled(w)
+        ? await api('/api/session?id=' + encodeURIComponent(sessionId))
+        : await api('/api/jobs', { sessionId });
+      apply(r.state);
+      const now = state.work;
+      if (resultReady(now)) {
+        clearInterval(jobsTimer);
+        if (!$('#pending').classList.contains('hidden')) go('score');
+        else if (!$('#score').classList.contains('hidden')) renderScore();
+        return;
+      }
+      if (!$('#pending').classList.contains('hidden')) renderPending();
+    } catch (e) { if (e.status === 404) resetToStart(); }
+  }
+  // Телефон уснул или ушёл в фон — опросы молчали; вернулись на экран, догоняем сразу
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (!$('#chat').classList.contains('hidden')) syncTeam();
+    if (!$('#pending').classList.contains('hidden')) pumpJobs();
+  });
 
   function renderProgress() {
     const { progress: p, revealed, finished } = state;
@@ -204,7 +266,8 @@
 
   function renderDone() {
     if (!state?.final) return;
-    $('#problem').textContent = state.final.problem;
+    // Диагноз команда ставит сама — показываем только то, что сказала клиентка
+    $('#problem').textContent = `«${state.final.message}»`;
     const facts = $('#done-facts'); facts.replaceChildren();
     state.revealed.forEach((f, i) => {
       const row = document.createElement('div'); row.className = 'row';
@@ -215,12 +278,19 @@
       facts.append(row);
     });
     const tasks = $('#tasks'); tasks.replaceChildren();
-    for (const t of state.final.tasks) {
+    (state.final.brief || []).forEach((t, i) => {
       const r = document.createElement('div'); r.style.cssText = 'display:flex;gap:10px;font-size:15px;line-height:1.4;font-weight:600';
-      r.innerHTML = '<span style="opacity:.7">—</span><span></span>'; r.lastChild.textContent = t; tasks.append(r);
-    }
-    $('#task-time').textContent = state.final.task_time;
-    confetti();
+      r.innerHTML = '<span style="opacity:.7"></span><span></span>';
+      r.firstChild.textContent = i + 1 + '.';
+      r.lastChild.textContent = t;
+      tasks.append(r);
+    });
+    $('#task-time').textContent = state.final.task_time || '';
+    const w = state.work;
+    $('#to-solve').textContent = !w ? 'Предложить решение'
+      : w.published ? `Итог: ${w.eval?.total ?? 0} из 100`
+      : 'Работа сдана · смотреть статус';
+    confetti($('#confetti'));
   }
 
   // --- Отправка вопроса ---
@@ -261,41 +331,284 @@
     const n = $('#solution').value.trim().length;
     $('#solve-count').textContent = n < 40 ? `${n} символов · нужно хотя бы 40` : `${n} символов`;
   };
+  const plural = (n, one, few, many) => {
+    const m = n % 100, k = n % 10;
+    return m > 4 && m < 21 ? many : k === 1 ? one : k > 1 && k < 5 ? few : many;
+  };
   $('#solution').addEventListener('input', () => { countChars(); $('#solve-err').textContent = ''; });
-  $('#to-solve').onclick = () => go(state?.solution ? 'score' : 'solve');
+  $('#to-solve').onclick = () => go(workScreen());
+  $('#to-solve-chat').onclick = () => go(workScreen());
   $('#score-back').onclick = () => go(state?.finished ? 'done' : 'chat');
 
-  $('#send-solution').onclick = async () => {
+  let draft = ''; // текст, который команда отправила на проверку перед сдачей
+
+  // С экрана разбора — не сразу на сервер, а на страницу подтверждения
+  $('#send-solution').onclick = () => {
     const text = $('#solution').value.trim();
     if (text.length < 40) return ($('#solve-err').textContent = 'Опишите решение подробнее.');
-    const btn = $('#send-solution');
-    btn.disabled = true; btn.textContent = 'Проверяем…'; $('#solve-err').textContent = '';
+    $('#solve-err').textContent = '';
+    draft = text;
+    go('confirm');
+  };
+  $('#confirm-edit').onclick = () => go('solve');
+  $('#confirm-back').onclick = () => go('solve');
+
+  function renderConfirm() {
+    if (!draft) return go('solve');
+    $('#confirm-text').textContent = draft;
+    const n = draft.length;
+    const words = draft.split(/\s+/).filter(Boolean).length;
+    $('#confirm-count').textContent =
+      `${n} ${plural(n, 'символ', 'символа', 'символов')} · ${words} ${plural(words, 'слово', 'слова', 'слов')}`;
+    $('#confirm-err').textContent = '';
+    const btn = $('#confirm-send');
+    btn.disabled = false; btn.textContent = 'Сдать решение';
+  }
+
+  $('#confirm-send').onclick = async () => {
+    const btn = $('#confirm-send');
+    btn.disabled = true; btn.textContent = 'Сдаём…'; $('#confirm-err').textContent = '';
     try {
-      const r = await api('/api/solution', { sessionId, text });
-      apply(r.state); go('score');
-    } catch (e) { $('#solve-err').textContent = e.message; }
-    finally { btn.disabled = false; btn.textContent = 'Отправить на оценку'; }
+      const r = await api('/api/solution', { sessionId, text: draft });
+      apply(r.state);
+      go('pending');
+      pumpJobs(); // не ждём первые три секунды впустую
+    } catch (e) {
+      $('#confirm-err').textContent = e.message;
+      btn.disabled = false; btn.textContent = 'Сдать решение';
+    }
   };
 
+  // --- Работа сдана: ждём оценку и картинку ---
+  const JOB_UI = {
+    queued: { t: 'В очереди', cls: 'wait', ic: ICON.clock },
+    running: { t: 'Считаем', cls: 'run', ic: ICON.spin },
+    done: { t: 'Готово', cls: 'ok', ic: ICON.done },
+    error: { t: 'Не удалось', cls: 'bad', ic: ICON.warn },
+    skipped: { t: 'Пропущено', cls: 'wait', ic: ICON.clock },
+  };
+
+  function jobRow(name, status, err, i) {
+    const u = JOB_UI[status] || JOB_UI.queued;
+    const row = document.createElement('div'); row.className = 'job'; row.style.setProperty('--i', i);
+    const line = document.createElement('div'); line.className = 'job-line';
+    const n = document.createElement('div'); n.className = 'job-name'; n.textContent = name;
+    const chip = document.createElement('span'); chip.className = 'job-chip ' + u.cls;
+    chip.innerHTML = u.ic + '<span></span>';
+    chip.querySelector('span').textContent = u.t;
+    line.append(n, chip); row.append(line);
+    if (status === 'error') {
+      const e = document.createElement('div'); e.className = 'job-err';
+      e.textContent = err ? String(err).slice(0, 160) : 'Преподаватель может запустить ещё раз.';
+      row.append(e);
+    }
+    return row;
+  }
+
+  function renderPending() {
+    const w = state?.work;
+    if (!w) return go('solve');
+    if (resultReady(w)) return go('score');
+    const at = new Date(w.at);
+    const time = isNaN(at.getTime()) ? '' : ' · сдано в ' + at.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    $('#pend-meta').textContent = `Версия ${w.version}${time}`;
+
+    const rows = [['Оценка работы', w.eval_status, w.eval_error]];
+    if (w.image_status !== 'skipped') rows.push(['Визуализация образа', w.image_status, w.image_error]);
+    const box = $('#jobs');
+    // Перерисовываем только когда статус реально сменился — иначе чипы моргали бы каждые три секунды
+    const sig = w.version + '|' + rows.map((r) => r[0] + ':' + r[1]).join('|');
+    if (box.dataset.sig !== sig) {
+      box.dataset.sig = sig;
+      box.replaceChildren();
+      rows.forEach(([name, st, err], i) => box.append(jobRow(name, st, err, i)));
+      if (!jobsSettled(w)) {
+        const bar = document.createElement('div'); bar.className = 'pend-bar'; bar.innerHTML = '<i></i>';
+        box.append(bar);
+      }
+    }
+    // Пишем как есть: что посчиталось, что сорвалось, чего ждём
+    const failed = rows.some(([, st]) => st === 'error');
+    $('#pend-tip').textContent = !jobsSettled(w)
+      ? 'Считаем. Страницу можно не трогать: результат появится здесь сам.'
+      : failed
+        ? 'Часть работы не посчиталась. Скажите преподавателю — он запустит ещё раз.'
+        : 'Всё посчитано. Ждём, пока преподаватель откроет итоги — экран обновится сам.';
+    $('#work-text').textContent = w.text || '';
+  }
+
+  $('#show-text').onclick = () => {
+    const t = $('#work-text');
+    const closed = t.classList.toggle('hidden');
+    $('#show-text').textContent = closed ? 'Показать мой текст' : 'Скрыть мой текст';
+    $('#show-text').setAttribute('aria-expanded', String(!closed));
+  };
+
+  // --- Итог: баллы, критерии, преображение ---
+  // Листаем вниз — шапка с кольцом сжимается, и преображению достаётся вся высота телефона
+  (() => {
+    const body = document.querySelector('#score .done-body');
+    if (!body) return;
+    body.addEventListener('scroll', () => {
+      const t = body.scrollTop;
+      if (t > 56) $('#score').classList.add('tight');
+      else if (t < 20) $('#score').classList.remove('tight');
+    }, { passive: true });
+  })();
+
+  const CRIT_ORDER =['diagnostics', 'understanding', 'outfit', 'hair', 'makeup', 'coherence', 'realism'];
+  let scoreVersion = null; // чтобы не переигрывать анимацию итога на каждом опросе
+  let revealSig = null; // картинку перемонтируем только когда она правда сменилась
+
   function renderScore() {
-    const s = state?.solution;
-    if (!s) return go('solve');
-    $('#score-verdict').textContent = s.verdict;
-    $('#score-title').textContent = s.score >= 9 ? 'Отличная работа' : s.score >= 7 ? 'Хорошее решение' : s.score >= 5 ? 'Решение засчитано' : 'Есть над чем поработать';
-    const num = $('#score-num'), ring = document.querySelector('.score-ring .val');
-    if (reduced) { num.textContent = s.score; ring.style.strokeDashoffset = 1 - s.score / 10; }
+    const w = state?.work;
+    if (!w) return go('solve');
+    if (!w.published) return go('pending');
+    const ev = w.eval || {};
+    const total = Math.max(0, Math.min(100, Math.round(ev.total ?? 0)));
+    const first = scoreVersion !== w.version;
+    scoreVersion = w.version;
+
+    $('#score-verdict').textContent = ev.verdict || '';
+    $('#score-title').textContent = total >= 85 ? 'Блестящая работа'
+      : total >= 70 ? 'Сильное решение'
+      : total >= 50 ? 'Решение засчитано'
+      : 'Есть над чем поработать';
+
+    const num = $('#score-num'), ring = document.querySelector('#score .score-ring .val');
+    if (reduced || !first) { num.textContent = total; ring.style.strokeDashoffset = 1 - total / 100; }
     else {
+      const wrap = $('#score-ring');
+      wrap.classList.remove('pop'); void wrap.offsetWidth; wrap.classList.add('pop');
       ring.style.strokeDashoffset = 1;
-      requestAnimationFrame(() => { ring.style.strokeDashoffset = 1 - s.score / 10; });
+      void ring.getBoundingClientRect(); // фиксируем ноль, чтобы кольцо поехало от него
+      ring.style.strokeDashoffset = 1 - total / 100;
       const t0 = performance.now();
       (function f(t) {
-        const k = Math.min(1, (t - t0) / 1200), e = 1 - Math.pow(1 - k, 3);
-        num.textContent = Math.round(s.score * e);
+        const k = Math.min(1, (t - t0) / 1400), e = 1 - Math.pow(1 - k, 3);
+        num.textContent = Math.round(total * e);
         if (k < 1) requestAnimationFrame(f);
       })(t0);
+      // Во вкладке в фоне кадры не идут — подстраховываемся, чтобы балл не завис на нуле
+      setTimeout(() => { num.textContent = total; }, 1600);
+      if (total >= 50) setTimeout(() => confetti($('#score-confetti')), 700);
     }
-    fillPanel($('#score-strengths'), 'Сильные стороны', s.strengths, ICON.done);
-    fillPanel($('#score-missed'), 'Что доработать', s.missed, ICON.spark);
+
+    renderCriteria(ev);
+    fillPanel($('#score-strengths'), 'Сильные стороны', ev.strengths, ICON.done);
+    fillPanel($('#score-missed'), 'Что доработать', ev.recommendations, ICON.spark);
+    // Преподаватель может перезапустить картинку и опубликовать итоги заново —
+    // тогда версия та же, а образ новый, и блок нужно собрать заново.
+    const sig = w.version + '|' + w.image_status + '|' + (w.image?.key || '');
+    if (revealSig !== sig) { revealSig = sig; renderReveal(w); }
+    renderReference($('#score-reference'));
+  }
+
+  function renderCriteria(ev) {
+    const box = $('#score-criteria');
+    box.replaceChildren(); box.classList.remove('run');
+    const h = document.createElement('div');
+    h.style.cssText = 'display:flex;align-items:baseline;justify-content:space-between;gap:10px';
+    h.innerHTML = '<span class="caps" style="color:var(--accent)">Семь критериев</span><span class="crit-hint">нажмите строку</span>';
+    box.append(h);
+    let i = 0;
+    for (const key of CRIT_ORDER) {
+      const c = ev.criteria?.[key];
+      if (!c) continue;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'crit'; b.setAttribute('aria-expanded', 'false');
+      b.style.setProperty('--i', i);
+      b.style.setProperty('--w', Math.round(((c.score || 0) / (c.max || 1)) * 100) + '%');
+      b.innerHTML = '<span class="crit-top"><span class="crit-title"></span>'
+        + '<span class="crit-val"><b></b><span></span></span></span>'
+        + '<span class="crit-track"><i></i></span><span class="crit-ev"></span>';
+      b.querySelector('.crit-title').textContent = c.title || key;
+      b.querySelector('.crit-val b').textContent = c.score ?? 0;
+      b.querySelector('.crit-val b + span').textContent = ' / ' + (c.max ?? 0);
+      b.querySelector('.crit-ev').textContent = c.evidence || 'Обоснование не записано.';
+      b.onclick = () => b.setAttribute('aria-expanded', String(b.classList.toggle('open')));
+      box.append(b); i++;
+    }
+    if (ev.teacher_edit) {
+      const n = document.createElement('div'); n.className = 'wk-note';
+      n.textContent = 'Баллы уточнил преподаватель' + (ev.teacher_edit.comment ? ': ' + ev.teacher_edit.comment : '.');
+      box.append(n);
+    }
+    void box.getBoundingClientRect(); // полосы стартуют с нуля, а не появляются заполненными
+    box.classList.add('run');
+  }
+
+  // Если картинки нет — вместо блока одна строка с настоящим статусом, без выдумок
+  const IMAGE_NOTE = {
+    queued: 'Визуализация образа ещё в очереди.',
+    running: 'Визуализация образа ещё создаётся.',
+    error: 'Визуализацию образа создать не удалось.',
+    skipped: 'Визуализация образа не создавалась.',
+    done: 'Визуализация образа недоступна.',
+  };
+
+  // Главный момент финала: кадр «до» превращается в образ, который придумала команда
+  function renderReveal(w) {
+    const slot = $('#reveal-slot');
+    try { revealComp?.destroy?.(); } catch {}
+    revealComp = null;
+    slot.replaceChildren();
+    const name = String(w.photo_full || state?.client?.photo_full || state?.client?.photo || '').split('/').pop();
+    if (w.image_status !== 'done' || !w.image?.key || !name || !window.BeautyReveal) {
+      const n = document.createElement('div'); n.className = 'wk-note';
+      n.textContent = IMAGE_NOTE[w.image_status] || IMAGE_NOTE.error;
+      slot.append(n);
+      return;
+    }
+    const wrap = document.createElement('div'); wrap.className = 'wk-reveal reveal-block';
+    const title = document.createElement('div'); title.className = 'wk-reveal-title'; title.textContent = 'Преображение';
+    const host = document.createElement('div');
+    const cap = document.createElement('div'); cap.className = 'reveal-caption'; cap.textContent = 'Визуализация решения команды';
+    wrap.append(title, host, cap);
+    if (w.image.changed?.length) {
+      const list = document.createElement('div'); list.className = 'wk-changed';
+      for (const it of w.image.changed) {
+        const row = document.createElement('div'); row.className = 'row';
+        row.innerHTML = '<span class="dot"></span><span></span>';
+        row.lastChild.textContent = it;
+        list.append(row);
+      }
+      wrap.append(list);
+    }
+    slot.append(wrap);
+    revealComp = window.BeautyReveal.mount(host, {
+      before: 'img/' + name,
+      after: API + '/api/image?key=' + encodeURIComponent(w.image.key),
+      autoplay: true,
+      caption: 'Визуализация решения команды',
+    });
+  }
+
+  // Разбор преподавателя приходит вместе с опубликованными итогами
+  function renderReference(box) {
+    const r = state?.reference;
+    box.classList.toggle('hidden', !r);
+    if (!r) return;
+    box.replaceChildren();
+    const h = document.createElement('div'); h.className = 'caps'; h.style.color = 'var(--accent)';
+    h.textContent = 'Разбор преподавателя';
+    const p = document.createElement('div'); p.style.cssText = 'font-size:14px;line-height:1.45';
+    p.textContent = r.problem || '';
+    box.append(h, p);
+    for (const [title, items] of [['Одежда', r.outfit], ['Стрижка, укладка, цвет', r.hair], ['Макияж', r.makeup]]) {
+      if (!items?.length) continue;
+      const t = document.createElement('div'); t.className = 'caps dim';
+      t.style.cssText = 'font-size:10px;letter-spacing:.14em;padding-top:6px';
+      t.textContent = title;
+      box.append(t);
+      for (const it of items) {
+        const row = document.createElement('div');
+        row.style.cssText = 'font-size:13px;line-height:1.45;display:flex;gap:8px';
+        row.innerHTML = '<span style="opacity:.6">—</span><span></span>';
+        row.lastChild.textContent = it;
+        box.append(row);
+      }
+    }
   }
 
   function fillPanel(box, title, items, icon) {
@@ -330,7 +643,6 @@
     $('#hint-btn').textContent = left ? `Подсказка · ${left}` : 'Подсказок нет';
     $('#hint-btn').disabled = !left;
   };
-  $('#to-solve-chat').onclick = () => go(state?.solution ? 'score' : 'solve');
   $('#solve-back').onclick = () => go(state?.finished ? 'done' : 'chat');
 
   // --- Таймер: считаем локально от последнего ответа сервера ---
@@ -362,21 +674,85 @@
     $('#hint-btn').classList.toggle('hidden', answerOnly);
     document.querySelector('.solve-client')?.classList.toggle('hidden', answerOnly);
     $('#solve-back').classList.toggle('hidden', answerOnly);
-    if (answerOnly && !state?.solution && !$('#solve').classList.contains('hidden') === false) {
+    if (answerOnly && !state?.work) {
       const visible = [...document.querySelectorAll('.screen:not(.hidden)')].map((s) => s.id)[0];
       if (['chat', 'card', 'done'].includes(visible)) go('solve');
     }
-    if (over) {
+    if (over && !state?.work) {
       $('#solution').disabled = true;
       $('#send-solution').disabled = true;
-      if (!state?.solution) $('#solve-err').textContent = 'Время на ответ закончилось.';
+      $('#solve-err').textContent = 'Время на ответ закончилось.';
+    }
+  }
+
+  // --- Праздничные мелочи ---
+  // Конфетти на итоговых экранах: канвас растянут по карточке телефона
+  function confetti(cv) {
+    if (reduced || !cv?.getContext) return;
+    const ctx = cv.getContext('2d');
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    const W = cv.width = Math.round(cv.clientWidth * dpr);
+    const H = cv.height = Math.round(cv.clientHeight * dpr);
+    if (!W || !H) return;
+    const css = getComputedStyle(document.body);
+    const cols = ['--g1', '--g2', '--g3'].map((v) => css.getPropertyValue(v).trim() || '#FF7A1A');
+    const parts = Array.from({ length: 90 }, () => ({
+      x: Math.random() * W, y: -Math.random() * H * 0.5,
+      vx: (Math.random() - 0.5) * 2.4 * dpr, vy: (2 + Math.random() * 3.6) * dpr,
+      w: (5 + Math.random() * 11) * dpr, h: (3 + Math.random() * 4) * dpr,
+      r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.22,
+      c: cols[(Math.random() * cols.length) | 0],
+    }));
+    const t0 = performance.now();
+    (function frame(t) {
+      const life = (t - t0) / 3800;
+      ctx.clearRect(0, 0, W, H);
+      for (const p of parts) {
+        p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        ctx.save(); ctx.globalAlpha = Math.max(0, 1 - life);
+        ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-p.w / 2, -p.h / 2, p.w, p.h, p.h / 2);
+        else ctx.rect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.fill(); ctx.restore();
+      }
+      if (life < 1) requestAnimationFrame(frame); else ctx.clearRect(0, 0, W, H);
+    })(t0);
+  }
+
+  // Искры от полосы прогресса, когда раскрыт новый факт
+  function burst(el) {
+    if (reduced || !el) return;
+    const r = el.getBoundingClientRect();
+    if (!r.width) return;
+    const css = getComputedStyle(document.body);
+    const cols = ['--g1', '--g2', '--g3'].map((v) => css.getPropertyValue(v).trim() || '#FF7A1A');
+    for (let i = 0; i < 14; i++) {
+      const p = document.createElement('i');
+      p.className = 'particle';
+      const s = 4 + Math.random() * 6;
+      Object.assign(p.style, {
+        width: s + 'px', height: s + 'px',
+        left: r.right - s / 2 + 'px', top: r.top + r.height / 2 - s / 2 + 'px',
+        background: cols[i % cols.length],
+        boxShadow: '0 0 ' + s * 2 + 'px ' + cols[i % cols.length],
+      });
+      document.body.append(p);
+      p.animate([
+        { transform: 'translate(0,0) scale(1)', opacity: 1 },
+        { transform: `translate(${(Math.random() - 0.35) * 90}px, ${(Math.random() - 0.7) * 70}px) scale(.2)`, opacity: 0 },
+      ], { duration: 600 + Math.random() * 400, easing: 'cubic-bezier(.22,1,.36,1)' }).onfinish = () => p.remove();
     }
   }
 
   function resetToStart() {
     store.set('bc-session', null); sessionId = null; state = null; hits.clear(); extra.length = 0; shown = 0; fresh = new Set();
+    draft = ''; scoreVersion = null; revealSig = null;
+    try { revealComp?.destroy?.(); } catch {}
+    revealComp = null;
+    $('#jobs').dataset.sig = '';
     $('#app').style.removeProperty('--accent'); $('#app').style.removeProperty('--accent-soft');
-    clearInterval(waitTimer); clearInterval(syncTimer); $('#code').value = ''; go('start');
+    clearInterval(waitTimer); clearInterval(syncTimer); clearInterval(jobsTimer); $('#code').value = ''; go('start');
   }
   $('#restart-btn').onclick = resetToStart;
   $('#wait-exit').onclick = resetToStart;
@@ -392,7 +768,13 @@
     api('/api/session?id=' + encodeURIComponent(restoring))
       .then((r) => {
         if (entering || sessionId !== restoring) return; // уже вошли по новому коду — старую сессию игнорируем
-        apply(r.state); go(r.state.phase === 'lobby' ? 'wait' : r.state.solution ? 'score' : r.state.finished ? 'done' : 'chat');
+        apply(r.state);
+        // Всё переживает перезагрузку: экран выбираем по состоянию с сервера
+        const stage = r.state.timer?.stage;
+        go(r.state.phase === 'lobby' ? 'wait'
+          : r.state.work ? workScreen()
+          : stage === 'answer' || stage === 'over' ? 'solve'
+          : r.state.finished ? 'done' : 'chat');
       })
       .catch(() => store.set('bc-session', null));
   }

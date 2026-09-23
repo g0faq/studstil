@@ -125,7 +125,7 @@ const redisStore = {
   },
   async history(id, limit) {
     const [rows] = await redis(['LRANGE', `h:${id}`, -limit, -1]);
-    return rows.map((r) => { const m = JSON.parse(r); return { role: m.role, content: m.content }; });
+    return rows.map((r) => { const m = JSON.parse(r); return { role: m.role, content: m.content, revealed: m.revealed || null }; });
   },
   async log(id, limit = 30) {
     const [rows] = await redis(['LRANGE', `log:${id}`, -limit, -1]);
@@ -137,6 +137,21 @@ const redisStore = {
   },
   async setMeta(key, value) {
     await redis(value === null ? ['DEL', `m:${key}`] : ['SET', `m:${key}`, JSON.stringify(value)]);
+  },
+  /** Защита от повторных платных вызовов: захватить замок на ttl секунд. */
+  async acquireLock(key, ttl = 180) {
+    const [res] = await redis(['SET', `lock:${key}`, '1', 'NX', 'EX', String(ttl)]);
+    return res === 'OK';
+  },
+  async releaseLock(key) {
+    await redis(['DEL', `lock:${key}`]);
+  },
+  async putBlob(key, value) {
+    await redis(['SET', `blob:${key}`, value]);
+  },
+  async getBlob(key) {
+    const [v] = await redis(['GET', `blob:${key}`]);
+    return v || null;
   },
   async activeSessions() {
     const [ids] = await redis(['SMEMBERS', 'active']);
@@ -157,7 +172,7 @@ async function getSqlite(file = config.dbPath) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       chat_id TEXT PRIMARY KEY, scenario_id TEXT, revealed TEXT NOT NULL DEFAULT '[]',
-      finished INTEGER NOT NULL DEFAULT 0, label TEXT, nudges INTEGER NOT NULL DEFAULT 0, last_call INTEGER NOT NULL DEFAULT 0, devices TEXT NOT NULL DEFAULT '[]', solution TEXT,
+      finished INTEGER NOT NULL DEFAULT 0, label TEXT, nudges INTEGER NOT NULL DEFAULT 0, last_call INTEGER NOT NULL DEFAULT 0, devices TEXT NOT NULL DEFAULT '[]', solution TEXT, extra TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS messages (
@@ -173,28 +188,39 @@ async function getSqlite(file = config.dbPath) {
   }
   try { db.exec(`ALTER TABLE sessions ADD COLUMN devices TEXT NOT NULL DEFAULT '[]'`); } catch {}
   try { db.exec('ALTER TABLE sessions ADD COLUMN solution TEXT'); } catch {}
+  try { db.exec("ALTER TABLE sessions ADD COLUMN extra TEXT NOT NULL DEFAULT '{}'"); } catch {}
   return db;
 }
 
-const parse = (row) => row && { ...row, revealed: JSON.parse(row.revealed), devices: JSON.parse(row.devices || '[]'),
-  solution: row.solution ? JSON.parse(row.solution) : null, finished: !!row.finished };
+// Всё, что не лежит в отдельных колонках (работа команды, архив версий, метки устройств), хранится в extra
+const CORE_COLUMNS = new Set(['chat_id', 'scenario_id', 'revealed', 'finished', 'label', 'nudges', 'last_call', 'devices', 'solution', 'extra', 'created_at', 'updated_at']);
+const parse = (row) => {
+  if (!row) return row;
+  const { extra, ...rest } = row;
+  return {
+    ...rest, ...(extra ? JSON.parse(extra) : {}),
+    revealed: JSON.parse(row.revealed), devices: JSON.parse(row.devices || '[]'),
+    solution: row.solution ? JSON.parse(row.solution) : null, finished: !!row.finished,
+  };
+};
 
 const sqliteStore = {
   async getSession(id) {
     return parse((await getSqlite()).prepare('SELECT * FROM sessions WHERE chat_id = ?').get(String(id)));
   },
   async startSession(id, scenarioId, label = null) {
-    (await getSqlite()).prepare(`INSERT INTO sessions (chat_id, scenario_id, revealed, finished, label, nudges, last_call, devices, created_at, updated_at) VALUES (?, ?, '[]', 0, ?, 0, 0, '[]', ?, ?)
+    (await getSqlite()).prepare(`INSERT INTO sessions (chat_id, scenario_id, revealed, finished, label, nudges, last_call, devices, extra, created_at, updated_at) VALUES (?, ?, '[]', 0, ?, 0, 0, '[]', '{}', ?, ?)
       ON CONFLICT(chat_id) DO UPDATE SET scenario_id = excluded.scenario_id, revealed = '[]', finished = 0, nudges = 0, last_call = 0, devices = '[]',
-      label = excluded.label, created_at = excluded.created_at, updated_at = excluded.updated_at`).run(String(id), scenarioId, label, now(), now());
+      extra = '{}', label = excluded.label, created_at = excluded.created_at, updated_at = excluded.updated_at`).run(String(id), scenarioId, label, now(), now());
   },
   async updateSession(id, patch) {
     const cur = await this.getSession(id);
     if (!cur) return;
     const s = { ...cur, ...patch };
-    (await getSqlite()).prepare(`UPDATE sessions SET revealed = ?, finished = ?, nudges = ?, last_call = ?, devices = ?, solution = ?, updated_at = datetime('now') WHERE chat_id = ?`)
+    const extra = Object.fromEntries(Object.entries(s).filter(([k, v]) => !CORE_COLUMNS.has(k) && v !== undefined));
+    (await getSqlite()).prepare(`UPDATE sessions SET revealed = ?, finished = ?, nudges = ?, last_call = ?, devices = ?, solution = ?, extra = ?, updated_at = ? WHERE chat_id = ?`)
       .run(JSON.stringify(s.revealed), s.finished ? 1 : 0, s.nudges || 0, s.last_call || 0, JSON.stringify(s.devices || []),
-           s.solution ? JSON.stringify(s.solution) : null, String(id));
+           s.solution ? JSON.stringify(s.solution) : null, JSON.stringify(extra), now(), String(id));
   },
   async resetSession(id) {
     const d = await getSqlite();
@@ -211,8 +237,9 @@ const sqliteStore = {
       .run(String(id), scenarioId, role, content, revealed ? JSON.stringify(revealed) : null, now());
   },
   async history(id, limit) {
-    return (await getSqlite()).prepare(`SELECT role, content FROM messages WHERE chat_id = ? AND archived = 0 AND role IN ('user','assistant')
-      ORDER BY id DESC LIMIT ?`).all(String(id), limit).reverse();
+    return (await getSqlite()).prepare(`SELECT role, content, revealed FROM messages WHERE chat_id = ? AND archived = 0 AND role IN ('user','assistant')
+      ORDER BY id DESC LIMIT ?`).all(String(id), limit).reverse()
+      .map((r) => ({ ...r, revealed: r.revealed ? JSON.parse(r.revealed) : null }));
   },
   async log(id, limit = 30) {
     return (await getSqlite()).prepare('SELECT role, content, revealed, archived, created_at FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT ?')
@@ -226,6 +253,24 @@ const sqliteStore = {
     const d = await getSqlite();
     if (value === null) d.prepare('DELETE FROM meta WHERE k = ?').run(key);
     else d.prepare('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').run(key, JSON.stringify(value));
+  },
+  async acquireLock(key, ttl = 180) {
+    const d = await getSqlite();
+    const now = Date.now();
+    const row = d.prepare('SELECT v FROM meta WHERE k = ?').get(`lock:${key}`);
+    if (row && Number(JSON.parse(row.v)) > now) return false;
+    d.prepare('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').run(`lock:${key}`, JSON.stringify(now + ttl * 1000));
+    return true;
+  },
+  async releaseLock(key) {
+    (await getSqlite()).prepare('DELETE FROM meta WHERE k = ?').run(`lock:${key}`);
+  },
+  async putBlob(key, value) {
+    (await getSqlite()).prepare('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v').run(`blob:${key}`, JSON.stringify(value));
+  },
+  async getBlob(key) {
+    const row = (await getSqlite()).prepare('SELECT v FROM meta WHERE k = ?').get(`blob:${key}`);
+    return row ? JSON.parse(row.v) : null;
   },
   async activeSessions() {
     return (await getSqlite()).prepare('SELECT * FROM sessions WHERE scenario_id IS NOT NULL ORDER BY scenario_id, created_at').all().map(parse);

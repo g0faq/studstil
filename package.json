@@ -14,7 +14,8 @@
     "check": "node scripts/check-scenarios.js",
     "set-domain": "node scripts/set-domain.js",
     "publish-site": "bash scripts/publish-site.sh",
-    "test": "for f in test/smoke*.mjs; do echo \"— $f\"; node $f || exit 1; done"
+    "test": "for f in test/smoke*.mjs; do echo \"— $f\"; node $f || exit 1; done",
+    "seed": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.0",

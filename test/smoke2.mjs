@@ -19,12 +19,12 @@ a((await E.handleMessage('team:нет', 'hi')).error === 'no_session', 'без �
 let r = await E.handleMessage(s1, 'q', { llm: mock(['выдуманный_id']) });
 a(r.progress.open === 0, 'несуществующий id отброшен');
 a((await E.handleMessage(s1, 'x'.repeat(600), { llm: mock([]) })).error === 'too_long', 'лимит длины');
-for (const id of ['new_job','current_style','time_limit']) r = await E.handleMessage(s1, 'q', { llm: mock([id, id]) });
+for (const id of ['o1','o2','o3']) r = await E.handleMessage(s1, 'q', { llm: mock([id, id]) });
 a(!r.finished && r.progress.required_open === 3, 'прогресс 3/4, дубли не считаются');
-r = await E.handleMessage(s1, 'q', { llm: mock(['fear_status']) });
-a(r.finished && r.final.tasks.length === 3, 'финиш и задание');
+r = await E.handleMessage(s1, 'q', { llm: mock(['o4']) });
+a(r.finished && r.final.brief.length === 3 && !r.final.tasks, 'финиш: нейтральное задание без готового ответа');
 a((await E.handleMessage(s1, 'q', { llm: mock([]) })).error === 'already_finished', 'после финиша');
-a(buildSystemPrompt(getScenario('olga'), ['new_job']).includes('[new_job] (УЖЕ РАССКАЗАНО'), 'статусы фактов в промпте');
+a(buildSystemPrompt(getScenario('olga'), ['o1']).includes('[o1] (УЖЕ РАССКАЗАНО'), 'статусы фактов в промпте');
 config.rateLimitMs = 10000;
 const { sessionId: s2 } = await E.enterCode('202', 'd2');
 await E.handleMessage(s2, 'a', { llm: mock([]) });

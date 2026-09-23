@@ -6,7 +6,11 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
 import { store } from '../core/db.js';
-import { enterCode, handleMessage, publicState, nextTrigger, boardState, getGame, createGame, startGame, endGame, finishGame, resultsState, submitSolution, stageOf, methodState } from '../core/engine.js';
+import {
+  enterCode, handleMessage, publicState, nextTrigger, boardState, getGame, createGame, startGame, endGame,
+  finishGame, resultsState, submitSolution, stageOf, methodState, runJobs, evaluateWork, renderImage,
+  allowResubmit, adjustScore, publishResults, getImageBlob,
+} from '../core/engine.js';
 
 const STATIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../docs');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
@@ -57,7 +61,7 @@ function readBody(req) {
   });
 }
 
-const sid = (id) => (typeof id === 'string' && /^team:[a-z0-9_-]{1,40}$/i.test(id) ? id : null);
+const sid = (id) => (typeof id === 'string' && /^(team|test):[a-z0-9_:-]{1,60}$/i.test(id) ? id : null);
 const isAdmin = (req, url) => {
   const key = req.headers['x-admin-key'] || url.searchParams.get('key');
   return !!config.adminKey && typeof key === 'string' && key.length === config.adminKey.length &&
@@ -120,7 +124,27 @@ async function route(req, res) {
     if (!s) return send(res, 404, { error: ERR_TEXT.no_session });
     const out = await submitSolution(s, text);
     if (out.error) return send(res, out.error === 'no_session' ? 404 : 400, { error: ERR_TEXT[out.error] || out.error, code: out.error });
-    return send(res, 200, { solution: out.solution, already: !!out.already, state: await publicState(s) });
+    return send(res, 200, { submission: { version: out.submission.version, at: out.submission.at }, already: !!out.already, state: await publicState(s) });
+  }
+
+  // Двигатель фоновых задач: его дёргают опросы страниц, повторы защищены замками
+  if (r === 'POST /api/jobs') {
+    const { sessionId } = await readBody(req);
+    const s = sid(sessionId);
+    if (!s) return send(res, 404, { error: ERR_TEXT.no_session });
+    const out = await runJobs(s);
+    return send(res, 200, { ...out, state: await publicState(s) });
+  }
+
+  // Картинка «после»
+  if (r === 'GET /api/image') {
+    const key = url.searchParams.get('key');
+    if (!key || !/^(team|test):[a-z0-9_:-]{1,80}$/i.test(key)) return send(res, 404, { error: 'not_found' });
+    const b64 = await getImageBlob(key);
+    if (!b64) return send(res, 404, { error: 'not_found' });
+    const buf = Buffer.from(b64, 'base64');
+    res.writeHead(200, { 'Content-Type': 'image/webp', 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=86400' });
+    return res.end(buf);
   }
 
   if (r === 'POST /api/hint') {
@@ -170,6 +194,39 @@ async function route(req, res) {
   if (r === 'GET /api/admin/results') {
     if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
     return send(res, 200, await resultsState());
+  }
+
+  // --- Управление работами (только преподаватель) ---
+  if (r === 'POST /api/admin/jobs') {
+    if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
+    const { sessionId, kind, force } = await readBody(req);
+    const s = sid(sessionId);
+    if (!s) return send(res, 404, { error: ERR_TEXT.no_session });
+    const out = kind === 'image' ? await renderImage(s, { force: !!force }) : await evaluateWork(s, { force: !!force });
+    return send(res, 200, out);
+  }
+
+  if (r === 'POST /api/admin/resubmit') {
+    if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
+    const { sessionId } = await readBody(req);
+    const s = sid(sessionId);
+    if (!s) return send(res, 404, { error: ERR_TEXT.no_session });
+    return send(res, 200, await allowResubmit(s));
+  }
+
+  if (r === 'POST /api/admin/score') {
+    if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
+    const { sessionId, criteria, comment } = await readBody(req);
+    const s = sid(sessionId);
+    if (!s) return send(res, 404, { error: ERR_TEXT.no_session });
+    const out = await adjustScore(s, { criteria: criteria || {}, comment: comment || '' });
+    return out.error ? send(res, 400, { error: out.error }) : send(res, 200, out);
+  }
+
+  if (r === 'POST /api/admin/publish') {
+    if (!isAdmin(req, url)) return send(res, 401, { error: 'Неверный ключ преподавателя' });
+    const game = await publishResults();
+    return game ? send(res, 200, { published: true }) : send(res, 400, { error: 'Игра не создана' });
   }
 
   if (r === 'POST /api/admin/end') {

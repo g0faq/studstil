@@ -22,9 +22,279 @@
     return data;
   }
 
+  // ===== Правила игры: показ по экранам приложения, «запись» внутри телефона =====
+  const demo = (() => {
+    const wrap = $('#dm-wrap');
+    if (!wrap) return { start() {}, stop() {} };
+    const stage = $('#dm-stage'), dotsBox = $('#dm-dots'), kicker = $('#dm-kicker'), title = $('#dm-title'),
+      text = $('#dm-text'), toggle = $('#dm-toggle'), restart = $('#dm-restart'), skip = $('#dm-skip'),
+      listBox = $('#dm-still'), note = $('#dm-note');
+    const FACE = '../img/olga-face.jpg';
+    const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let reduce = motionMQ.matches;
+    // слова реплики поднимаются по очереди
+    const words = (s, q) => s.split(' ').map((w, i) => `<span class="dm-w" style="--q:${q};--i:${i}">${w}</span>`).join(' ');
+    const SOLUTION = 'Одежда: тёмно-синий костюм и трикотаж, который переживёт метро и детей. Волосы: каре до плеч, укладка за десять минут. Макияж: гипоаллергенный тон, тёплый нюд.';
+
+    const SCENES = [
+      {
+        title: 'Вход по коду', dur: 4600,
+        text: 'Команда открывает studstil.ru и вводит код, который вы выдали. У каждой команды своя клиентка.',
+        html: () => `
+          <div class="dm-scene">
+            <svg class="dm-sw" viewBox="0 0 320 132" aria-hidden="true">
+              <path class="sw sw1" pathLength="1" d="M18 40 C 70 22, 130 30, 176 26 S 262 18, 300 30"/>
+              <path class="sw sw2" pathLength="1" d="M30 78 C 90 64, 150 84, 206 70 S 270 62, 292 74"/>
+              <path class="sw sw3" pathLength="1" d="M22 112 C 64 104, 104 116, 150 106"/>
+            </svg>
+            <div class="dm-brand dm-in" style="--d:.35s">Beauty<br>Case</div>
+            <p class="dm-lead dm-in" style="--d:.5s">Разгадай клиента. Задавай вопросы, собирай факты, найди настоящий запрос.</p>
+            <div class="dm-spacer"></div>
+            <div class="dm-cap dm-in" style="--d:.66s">Код команды</div>
+            <div class="dm-field dm-in" style="--d:.74s;--p:1.9s"><span data-type="900:230:1234"></span><i class="dm-caret"></i></div>
+            <button class="dm-btn dm-grad dm-tap" style="--d:.86s;--p:2.5s" type="button" tabindex="-1">Войти</button>
+          </div>`,
+      },
+      {
+        title: 'Карточка клиентки', dur: 5000,
+        text: 'Видно только имя, возраст и одну фразу. Главного клиентка сама не скажет.',
+        html: () => `
+          <div class="dm-scene center">
+            <div class="dm-top" style="width:100%"><span class="dm-back">←</span><span class="dm-cap">Карточка клиента</span><span style="width:1.7em"></span></div>
+            <div class="dm-portrait dm-pop" style="--d:.1s">
+              <svg class="dm-orbit" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="57"/><circle class="dm-spark" cx="60" cy="3" r="3.2"/></svg>
+              <img src="${FACE}" alt="">
+            </div>
+            <div class="dm-name dm-in" style="--d:.55s">Ольга, 38</div>
+            <div class="dm-sub dm-in" style="--d:.66s">Салон красоты · возвращается из декрета</div>
+            <div class="dm-quote glass dm-in" style="--d:.8s">
+              <div class="dm-cap accent">Она сказала только это</div>
+              <p>${words('Последнее время совсем перестала заниматься собой. Хочу выглядеть более собранно.', '1s')}</p>
+            </div>
+            <div class="dm-spacer"></div>
+            <button class="dm-btn dm-accent dm-tap" style="--d:1s;--p:3.4s" type="button" tabindex="-1">Начать консультацию</button>
+          </div>`,
+      },
+      {
+        title: 'Вопросы и факты', dur: 6000,
+        text: 'Клиентка отвечает только на точные вопросы. Каждый раскрытый факт падает в досье и двигает шкалу — всего их четыре.',
+        html: () => `
+          <div class="dm-scene">
+            <div class="dm-chat-head dm-in">
+              <img src="${FACE}" alt="">
+              <div style="flex:1;min-width:0"><b>Ольга</b><span>в сети</span></div>
+              <span class="dm-hint">Подсказка</span>
+            </div>
+            <div class="dm-prog dm-in" style="--d:.1s">
+              <div>Раскрыто <b data-from="0" data-set="3080:1,5320:2">2</b> из 4 фактов</div>
+              <div class="dm-track"><i class="dm-fill" style="--to:50%" data-seq="0:0%,3080:25%,5320:50%"></i></div>
+            </div>
+            <div class="dm-msgs">
+              <div class="dm-msg me dm-in" style="--d:1.78s">Почему решили обновить образ сейчас?</div>
+              <div class="dm-dots3" style="--d:1.98s"><i></i><i></i><i></i></div>
+              <div class="dm-msg them hit dm-in" style="--d:2.78s">Через три недели выхожу управляющей в салон, где меня помнят администратором.</div>
+              <div class="dm-stamp dm-pop" style="--d:3.08s">Факт раскрыт · Контекст</div>
+              <div class="dm-msg me dm-in" style="--d:4.08s">А чего вы боитесь?</div>
+              <div class="dm-dots3" style="--d:4.28s"><i></i><i></i><i></i></div>
+              <div class="dm-msg them hit dm-in" style="--d:5.02s">Что во мне увидят прежнюю девочку-администратора после декрета.</div>
+              <div class="dm-stamp dm-pop" style="--d:5.32s">Факт раскрыт · Эмоция</div>
+            </div>
+            <div class="dm-composer dm-in" style="--d:.2s">
+              <div class="dm-input"><span data-type="520:32:Почему решили обновить образ сейчас?|1760:0:|3420:32:А чего вы боитесь?|4060:0:"></span><i class="dm-caret"></i></div>
+              <span class="dm-send">↑</span>
+            </div>
+          </div>`,
+      },
+      {
+        title: 'Разбор и сдача', dur: 5600,
+        text: 'Когда факты собраны, команда описывает полный образ: одежда, волосы, макияж — и сдаёт работу.',
+        html: () => `
+          <div class="dm-scene">
+            <div class="dm-top"><span class="dm-back">←</span><span class="dm-cap">Разбор клиента</span><span class="dm-clock">04:12</span></div>
+            <div class="dm-client dm-in" style="--d:.1s">
+              <img src="${FACE}" alt="">
+              <div><b>Ольга, 38</b><span>Через три недели — новая должность</span></div>
+            </div>
+            <div class="dm-area dm-in hot" style="--d:.2s"><span data-type="600:20:${SOLUTION}"></span><i class="dm-caret"></i></div>
+            <div class="dm-small dm-in" style="--d:.3s">Одежда, волосы и макияж — одним сообщением</div>
+            <button class="dm-btn dm-grad dm-tap" style="--d:.4s;--p:4.4s" type="button" tabindex="-1">Сдать решение</button>
+          </div>`,
+      },
+      {
+        title: 'Результат', dur: 6000,
+        text: 'ИИ ставит баллы по семи критериям и рисует клиентку после преображения. До и после — рядом, на одном экране.',
+        html: () => `
+          <div class="dm-scene center">
+            <div class="dm-top" style="width:100%"><span class="dm-cap">Итог команды</span><span class="dm-clock">готово</span></div>
+            <div class="dm-ring">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="bg" cx="60" cy="60" r="52" pathLength="1"/>
+                <circle class="val" cx="60" cy="60" r="52" pathLength="1" style="--to:.14" data-seq="0:1,420:.14"/>
+              </svg>
+              <div class="dm-ring-n"><b data-count="0" data-at="420" data-dur="1150">86</b><span>из 100</span></div>
+            </div>
+            <div class="dm-verdict dm-in" style="--d:1.5s">Клиентку услышали: образ собран под новую роль и её три недели.</div>
+            <div class="dm-ba">
+              <figure class="dm-shot before dm-pop" style="--d:2s"><img src="${FACE}" alt=""><figcaption>До</figcaption></figure>
+              <figure class="dm-shot after dm-pop" style="--d:2.2s;--h:3.05s">
+                <img class="dm-tint" style="--d:2.55s" src="${FACE}" alt="">
+                <i class="dm-beam" style="--d:2.6s"></i>
+                <figcaption>После</figcaption>
+              </figure>
+              <div class="dm-sparks">
+                <i style="--sd:2.78s;--dx:-2.4em;--dy:-2.9em"></i><i style="--sd:2.86s;--dx:2.1em;--dy:-2.2em"></i>
+                <i style="--sd:2.94s;--dx:-2.9em;--dy:1.8em"></i><i style="--sd:3.02s;--dx:2.6em;--dy:2.4em"></i>
+                <i style="--sd:3.1s;--dx:.3em;--dy:-3.2em"></i><i style="--sd:3.18s;--dx:-.6em;--dy:3.1em"></i>
+              </div>
+            </div>
+            <div class="dm-badge dm-pop" style="--d:3.4s">Преображение</div>
+          </div>`,
+      },
+    ];
+
+    const N = SCENES.length;
+    let idx = 0, playing = false, flat = true, listed = false;
+    let jobs = [], ids = [], t0 = 0, elapsed = 0, dur = 0;
+
+    // Разбираем разметку сцены: печать текста, шаги шкалы, счётчики
+    function collect(root, isFlat) {
+      const out = [];
+      root.querySelectorAll('[data-type]').forEach((el) => {
+        const parts = el.dataset.type.split('|').map((p) => {
+          const a = p.indexOf(':'), b = p.indexOf(':', a + 1);
+          return { at: +p.slice(0, a), step: +p.slice(a + 1, b), t: p.slice(b + 1) };
+        });
+        if (isFlat) { el.textContent = parts[parts.length - 1].t; return; }
+        el.textContent = '';
+        for (const p of parts) {
+          out.push({ at: p.at, fn: () => { el.textContent = ''; } });
+          for (let i = 1; i <= p.t.length; i++) {
+            const slice = p.t.slice(0, i);
+            out.push({ at: p.at + i * p.step, fn: () => { el.textContent = slice; } });
+          }
+        }
+      });
+      root.querySelectorAll('[data-seq]').forEach((el) => {
+        if (isFlat) return; // статичный кадр: остаётся конечное значение из --to
+        const steps = el.dataset.seq.split(',').map((s) => { const i = s.indexOf(':'); return { at: +s.slice(0, i), v: s.slice(i + 1) }; });
+        el.style.setProperty('--to', steps[0].v);
+        let prev = steps[0].v;
+        for (const s of steps.slice(1)) {
+          const from = prev, to = s.v; prev = s.v;
+          out.push({ at: s.at, fn: () => {
+            el.classList.remove('go'); el.getBoundingClientRect();
+            el.style.setProperty('--from', from); el.style.setProperty('--to', to); el.classList.add('go');
+          } });
+        }
+      });
+      root.querySelectorAll('[data-set]').forEach((el) => {
+        if (isFlat) return;
+        el.textContent = el.dataset.from || '';
+        for (const s of el.dataset.set.split(',')) {
+          const i = s.indexOf(':'), at = +s.slice(0, i), v = s.slice(i + 1);
+          out.push({ at, fn: () => { el.textContent = v; el.classList.remove('bump'); el.getBoundingClientRect(); el.classList.add('bump'); } });
+        }
+      });
+      root.querySelectorAll('[data-count]').forEach((el) => {
+        const to = parseInt(el.textContent, 10) || 0;
+        if (isFlat) return;
+        const from = +el.dataset.count || 0, at = +el.dataset.at || 0, d = +el.dataset.dur || 1000, n = 26;
+        el.textContent = String(from);
+        for (let i = 1; i <= n; i++) {
+          const p = i / n, v = String(Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))));
+          out.push({ at: at + Math.round(d * p), fn: () => { el.textContent = v; } });
+        }
+      });
+      return out.sort((a, b) => a.at - b.at);
+    }
+
+    function halt() { for (const id of ids) clearTimeout(id); ids = []; }
+
+    function schedule() {
+      t0 = performance.now() - elapsed;
+      for (const j of jobs) if (j.at >= elapsed) ids.push(setTimeout(j.fn, j.at - elapsed));
+      ids.push(setTimeout(() => build((idx + 1) % N, true), Math.max(0, dur - elapsed)));
+    }
+
+    function build(i, play) {
+      halt();
+      idx = ((i % N) + N) % N; elapsed = 0;
+      const sc = SCENES[idx];
+      dur = sc.dur;
+      flat = reduce || !play;
+      wrap.classList.toggle('flat', flat);
+      wrap.classList.remove('paused');
+      stage.innerHTML = sc.html();
+      jobs = collect(stage, flat);
+      kicker.textContent = `Сцена ${idx + 1} из ${N}`;
+      title.textContent = sc.title;
+      text.textContent = sc.text;
+      if (!reduce) for (const el of [kicker, title, text]) { el.classList.remove('dm-swap'); el.getBoundingClientRect(); el.classList.add('dm-swap'); }
+      for (const d of dotsBox.children) d.classList.remove('on', 'done');
+      dotsBox.getBoundingClientRect();
+      [...dotsBox.children].forEach((d, k) => {
+        if (k < idx) d.classList.add('done');
+        if (k === idx) { d.style.setProperty('--dur', dur + 'ms'); d.classList.add('on'); }
+      });
+      playing = !flat;
+      toggle.textContent = playing ? 'Пауза' : 'Продолжить';
+      if (playing) schedule();
+    }
+
+    function pause() {
+      if (!playing) return;
+      elapsed = performance.now() - t0; halt();
+      playing = false; wrap.classList.add('paused'); toggle.textContent = 'Продолжить';
+    }
+
+    function resume() {
+      if (playing || reduce) return;
+      if (flat) return build(idx, true);
+      playing = true; wrap.classList.remove('paused'); toggle.textContent = 'Пауза'; schedule();
+    }
+
+    // Точки-индикаторы и текстовый вариант правил
+    SCENES.forEach((s, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'dm-dot'; b.innerHTML = '<i></i>';
+      b.setAttribute('aria-label', `Сцена ${i + 1}: ${s.title}`);
+      b.onclick = () => build(i, playing);
+      dotsBox.append(b);
+    });
+    listBox.innerHTML = SCENES.map((s, i) => `<div class="rule glass"><b>${i + 1}</b><span>${s.title}. ${s.text}</span></div>`).join('');
+    note.hidden = !reduce;
+    toggle.hidden = reduce;
+
+    toggle.onclick = () => (playing ? pause() : resume());
+    restart.onclick = () => build(0, !reduce);
+    skip.onclick = () => {
+      listed = !listed;
+      wrap.hidden = listed; listBox.hidden = !listed;
+      skip.textContent = listed ? 'Показать снова' : 'Пропустить показ';
+      if (listed) { halt(); playing = false; } else build(idx, !reduce);
+    };
+
+    // Настройку «меньше движения» могли включить уже при открытой панели:
+    // тогда CSS обрубит анимации на полукадре, поэтому пересобираем сцену статичной.
+    motionMQ.addEventListener('change', () => {
+      reduce = motionMQ.matches;
+      note.hidden = !reduce;
+      toggle.hidden = reduce;
+      if (listed) return;
+      if (!wrap.closest('.step').classList.contains('on')) { halt(); playing = false; return; }
+      build(idx, !reduce);
+    });
+
+    return {
+      start() { if (!listed) build(idx, !reduce); },
+      stop() { halt(); playing = false; },
+    };
+  })();
+
   const show = (id) => {
     for (const s of document.querySelectorAll('.step')) s.classList.toggle('on', s.id === id);
     if (id === 's-splash') setTimeout(() => { if ($('#s-splash').classList.contains('on')) show('s-rules'); }, 3800);
+    id === 's-rules' ? demo.start() : demo.stop();
   };
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) show(b.dataset.go); });
 

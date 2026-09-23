@@ -11,6 +11,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="reveal.css">
+<link rel="stylesheet" href="work.css">
 <script>try{var q=new URLSearchParams(location.search).get('palette');if(q)localStorage.setItem('bc-palette',q==='orange'?'':q);var p=localStorage.getItem('bc-palette');if(p)document.documentElement.dataset.palette=p;var t=localStorage.getItem('bc-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
@@ -155,30 +157,83 @@
       <div class="solve-hint dim" id="solve-count">0 символов · нужно хотя бы 40</div>
       <div class="err" id="solve-err"></div>
     </div>
-    <button class="btn-main btn-grad" id="send-solution" type="button">Отправить на оценку</button>
+    <button class="btn-main btn-grad" id="send-solution" type="button">Проверить и сдать</button>
   </section>
 
-  <!-- Оценка -->
+  <!-- Проверка перед сдачей -->
+  <section class="screen hidden" id="confirm">
+    <div class="bar">
+      <button class="icon-btn" id="confirm-back" type="button" aria-label="Вернуться к тексту">←</button>
+      <div class="caps dim" style="font-size:12px;letter-spacing:.16em">Проверьте перед сдачей</div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="confirm-body">
+      <div class="confirm-note">
+        <div class="caps" style="color:var(--accent)">Последний взгляд</div>
+        <div class="confirm-note-t">Сдаёте один раз на всю команду. Проверьте, что в тексте есть все три части образа:</div>
+        <div class="confirm-parts">
+          <span class="confirm-part" style="--i:0">одежда</span>
+          <span class="confirm-part" style="--i:1">стрижка</span>
+          <span class="confirm-part" style="--i:2">макияж</span>
+        </div>
+      </div>
+      <div class="confirm-text" id="confirm-text"></div>
+      <div class="confirm-count dim" id="confirm-count"></div>
+      <div class="err" id="confirm-err"></div>
+    </div>
+    <div class="confirm-actions">
+      <button class="ghost" id="confirm-edit" type="button">Изменить</button>
+      <button class="btn-main btn-grad" id="confirm-send" type="button">Сдать решение</button>
+    </div>
+  </section>
+
+  <!-- Работа сдана: считаем оценку и рисуем образ -->
+  <section class="screen hidden" id="pending">
+    <div class="pend-head">
+      <div class="pend-mark">
+        <svg viewBox="0 0 84 84" aria-hidden="true">
+          <circle class="disc" cx="42" cy="42" r="40"/>
+          <path d="M26 43 l11 11 l21 -24" pathLength="1"/>
+        </svg>
+      </div>
+      <div class="display" style="font-weight:800;font-size:30px">Работа сдана</div>
+      <div class="pend-meta dim" id="pend-meta"></div>
+    </div>
+    <div class="pend-body">
+      <div id="jobs" style="display:flex;flex-direction:column;gap:10px" aria-live="polite"></div>
+      <div class="pend-tip glass" id="pend-tip"></div>
+      <button class="ghost" id="show-text" type="button" aria-expanded="false">Показать мой текст</button>
+      <div class="wk-text hidden" id="work-text"></div>
+    </div>
+  </section>
+
+  <!-- Итог: баллы, критерии, преображение -->
   <section class="screen hidden" id="score">
+    <canvas class="confetti" id="score-confetti" aria-hidden="true"></canvas>
     <div class="done-head">
       <div class="score-ring" id="score-ring">
         <svg viewBox="0 0 120 120" aria-hidden="true">
+          <defs><linearGradient id="wkGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0"/><stop offset=".55"/><stop offset="1"/></linearGradient></defs>
           <circle class="bg" cx="60" cy="60" r="52"/>
           <circle class="val" cx="60" cy="60" r="52" pathLength="1"/>
         </svg>
-        <div class="score-num"><b id="score-num">0</b><span>из 10</span></div>
+        <div class="score-num"><b id="score-num">0</b><span>из 100</span></div>
       </div>
-      <div class="display" style="font-weight:800;font-size:26px" id="score-title">Решение принято</div>
+      <div class="display" style="font-weight:800;font-size:26px" id="score-title">Работа оценена</div>
       <div class="dim" style="font-size:15px;line-height:1.45" id="score-verdict"></div>
     </div>
     <div class="done-body">
+      <div class="panel glass" id="score-criteria"></div>
       <div class="panel glass" id="score-strengths"></div>
       <div class="panel glass" id="score-missed"></div>
+      <div id="reveal-slot"></div>
+      <div class="panel glass hidden" id="score-reference"></div>
       <button class="ghost" id="score-back" type="button">Показать задание и досье</button>
     </div>
   </section>
 </div>
 <script src="config.js"></script>
+<script src="reveal.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
