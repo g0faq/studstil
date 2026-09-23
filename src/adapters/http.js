@@ -70,6 +70,12 @@ const isAdmin = (req, url) => {
 function serveStatic(url, res) {
   let p = decodeURIComponent(url.pathname);
   if (p.endsWith('/')) p += 'index.html';
+  // Когда сайт отдаёт этот же сервер, API живёт на том же домене: браузеру не нужен
+  // ни отдельный домен, ни предварительный запрос CORS.
+  if (p === '/config.js') {
+    res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-cache' });
+    return res.end("// Адрес API: сайт и API на одном домене\nwindow.API_URL = '';\n");
+  }
   let file = path.join(STATIC, path.normalize(p));
   if (!file.startsWith(STATIC)) return send(res, 404, { error: 'not_found' });
   // /admin → /admin/ (как делает GitHub Pages), иначе ломаются относительные пути
@@ -78,7 +84,14 @@ function serveStatic(url, res) {
     return res.end();
   }
   if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return send(res, 404, { error: 'not_found' });
-  res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+  // Файлы с версией в адресе можно держать в кэше долго, страницы — нет
+  const versioned = url.searchParams.has('v');
+  res.writeHead(200, {
+    'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
+    'Cache-Control': versioned ? 'public, max-age=31536000, immutable'
+      : path.extname(file) === '.html' ? 'no-cache'
+      : 'public, max-age=3600',
+  });
   fs.createReadStream(file).pipe(res);
 }
 

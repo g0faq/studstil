@@ -1,0 +1,10 @@
+# Развёртывание на Amvera: сборка из Dockerfile, постоянный диск под базу.
+meta:
+  environment: docker
+  toolchain:
+    name: docker
+build:
+  dockerfile: ./Dockerfile
+run:
+  persistenceMount: /data
+  containerPort: 80
