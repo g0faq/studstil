@@ -695,7 +695,10 @@ export async function renderImage(sessionId, { imager = editImage, instructor = 
       { role: 'user', content: `Решение команды:\n"""\n${sub.text}\n"""` },
     ]);
     const source = await readSitePhoto(photo);
-    const out = await imager(source.buffer, source.filename, ins.data.instruction);
+    // Правила кадра дописываем сами: модель иначе любит собрать коллаж из вещей рядом с человеком
+    const frameRules = 'Одно цельное фото этой же женщины в полный рост: тот же ракурс, свет и фон, что на исходном кадре. '
+      + 'Без коллажей, дополнительных панелей и вставок с вещами, без текста, надписей, рамок и второго человека.';
+    const out = await imager(source.buffer, source.filename, `${ins.data.instruction}\n\n${frameRules}`);
     const key = `${sessionId}:${sub.version}:${sub.game_token || '0'}`;
     await store.putBlob(key, out.b64);
     const submission = await patchSubmission(sessionId, {
