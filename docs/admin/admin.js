@@ -314,15 +314,16 @@
 
   async function enter() {
     splitTitle();
+    // Экран показываем сразу, не дожидаясь сервера: иначе на медленной связи панель
+    // висит пустой чёрной страницей, и непонятно, работает она вообще или нет.
+    if (location.hash === '#rules') { history.replaceState(null, '', location.pathname); show('s-rules'); }
+    else show('s-splash');
     try {
       const r = await api('/api/admin/game');
       game = r.game;
       if (game?.phase === 'running') return location.replace('../board.html'); // игра уже идёт → дашборд
-      if (game?.phase === 'lobby') { renderCodes(); show('s-codes'); startPoll(); return; }
+      if (game?.phase === 'lobby') { renderCodes(); show('s-codes'); startPoll(); }
     } catch {}
-    // После сброса преподаватель попадает сразу на правила, а не на заставку
-    if (location.hash === '#rules') { history.replaceState(null, '', location.pathname); show('s-rules'); return; }
-    show('s-splash');
   }
 
   function splitTitle() {
@@ -391,7 +392,7 @@
 
   // Кто уже в комнате ожидания. Начинать можно в любой момент — даже если зашли не все команды
   function startPoll() {
-    clearInterval(poll);
+    clearTimeout(poll); clearInterval(poll);
     const tick = async () => {
       try {
         const { teams } = await api('/api/board');
@@ -416,7 +417,10 @@
           : `Подключились ${ready} из ${teams.length} — начать можно и сейчас, остальные войдут по коду позже`;
       } catch {}
     };
-    tick(); poll = setInterval(tick, 2500);
+    // Следующий опрос запускаем только после ответа: иначе на медленной сети запросы
+    // копятся в очереди браузера и блокируют нажатия кнопок.
+    const loop = async () => { await tick(); poll = setTimeout(loop, 2500); };
+    loop();
   }
 
   // Бесплатный Vercel усыпляет функцию, и первое действие после паузы ждёт около секунды.
@@ -439,7 +443,7 @@
     resetBtn.textContent = 'Сбрасываем…';
     try {
       await api('/api/admin/end', 'POST');
-      clearInterval(poll);
+      clearTimeout(poll); clearInterval(poll);
       game = null;
       show('s-rules');
     } catch (e) { alert(e.message); }

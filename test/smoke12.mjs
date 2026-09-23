@@ -103,6 +103,7 @@ await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const port = server.address().port;
 
 process.env.REDIS_TIMEOUT_MS = '2500';
+process.env.REDIS_IDLE_MS = '300'; // соединение считаем устаревшим быстро — чтобы проверить переподключение
 process.env.REDIS_URL = `redis://default:secret@127.0.0.1:${port}`;
 delete process.env.KV_REST_API_URL;
 delete process.env.UPSTASH_REDIS_REST_URL;
@@ -150,6 +151,15 @@ const again = await store.getSession('team:olga');
 a(again && again.scenario_id === 'olga', 'после обрыва запрос прошёл');
 a(conns === before + 1, 'клиент переподключился ровно один раз', `${before} → ${conns}`);
 
+// Простаивавшее соединение не переиспользуем: провайдер мог его молча закрыть
+const beforeIdle = conns;
+await sleep(400);
+const afterPause = await store.getSession('team:olga');
+a(afterPause && conns === beforeIdle + 1, 'после простоя берём свежее соединение', `${beforeIdle} → ${conns}`);
+const sameBurst = conns;
+await store.getSession('team:olga');
+a(conns === sameBurst, 'подряд идущие запросы соединение не меняют', String(conns));
+
 // Redis замолчал: запрос падает с ошибкой, но следующий проходит по новому соединению
 stall = 'GET';
 let failed = null;
@@ -160,6 +170,6 @@ const alive = await store.getSession('team:olga');
 a(alive && alive.scenario_id === 'olga', 'после зависания хранилище снова отвечает');
 
 console.log('--- всего проверок:');
-console.log(14);
+console.log(16);
 server.close();
 process.exit(0);

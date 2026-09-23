@@ -13,7 +13,10 @@ export const tidyText = (t) => String(t == null ? '' : t).replace(/[ \t]+$/gm, '
 
 const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-const REDIS_TIMEOUT = Number(process.env.REDIS_TIMEOUT_MS) || 10000;
+const REDIS_TIMEOUT = Number(process.env.REDIS_TIMEOUT_MS) || 8000;
+// Бессерверная функция простаивает между вызовами, и провайдер тихо рвёт соединение.
+// Такой «мёртвый» сокет не отвечает и съедает весь таймаут, поэтому старые связи не переиспользуем.
+const REDIS_IDLE_MAX = Number(process.env.REDIS_IDLE_MS) || 15000;
 const REDIS_TCP = process.env.REDIS_URL; // Redis for Vercel: redis://user:pass@host:port или rediss://
 const now = () => new Date().toISOString();
 
@@ -89,7 +92,7 @@ function tcpOpen() {
   const sock = u.protocol === 'rediss:' ? tls.connect({ ...opts, servername: u.hostname }) : net.connect(opts);
   sock.setNoDelay(true);
   sock.setKeepAlive(true, 30000);
-  const link = { sock, jobs: [], buf: Buffer.alloc(0), pos: 0, ready: null, dead: false };
+  const link = { sock, jobs: [], buf: Buffer.alloc(0), pos: 0, ready: null, dead: false, lastUsed: Date.now() };
 
   link.ready = new Promise((resolve, reject) => {
     sock.once(u.protocol === 'rediss:' ? 'secureConnect' : 'connect', resolve);
@@ -135,7 +138,7 @@ function tcpOpen() {
   return link;
 }
 
-function tcpSend(link, commands) {
+function tcpSend(link, commands, timeout = REDIS_TIMEOUT) {
   return new Promise((resolve, reject) => {
     const job = { need: commands.length, replies: [], resolve, reject, timer: null, late: null, dropped: false };
     job.timer = setTimeout(() => {
@@ -143,30 +146,35 @@ function tcpSend(link, commands) {
       // и он должен быть вычитан, иначе следующему запросу достанется чужой ответ.
       job.dropped = true;
       reject(new Error('Redis: таймаут'));
-      job.late = setTimeout(() => { if (link.jobs.includes(job)) tcpClose(link, new Error('Redis: нет ответа')); }, REDIS_TIMEOUT);
-    }, REDIS_TIMEOUT);
+      job.late = setTimeout(() => { if (link.jobs.includes(job)) tcpClose(link, new Error('Redis: нет ответа')); }, timeout);
+    }, timeout);
     link.jobs.push(job);
   });
 }
 
-async function redisTcpOnce(commands) {
+async function redisTcpOnce(commands, timeout) {
+  const stale = tcpLink && Date.now() - tcpLink.lastUsed > REDIS_IDLE_MAX;
+  if (stale) tcpClose(tcpLink);
   if (!tcpLink || tcpLink.dead || tcpLink.sock.destroyed) tcpLink = tcpOpen();
   const link = tcpLink;
+  link.lastUsed = Date.now();
   await link.ready;
   await link.hello;
   if (link.dead) throw new Error('Redis: соединение закрыто');
-  const p = tcpSend(link, commands);
+  const p = tcpSend(link, commands, timeout);
   link.sock.write(commands.map(encode).join(''));
+  link.lastUsed = Date.now();
   return p;
 }
 
 async function redisTcp(commands) {
   try {
-    return await redisTcpOnce(commands);
+    // Первая попытка ждёт недолго: если связь всё-таки оборвалась, лучше быстро переподключиться,
+    // чем держать преподавателя перед пустым экраном.
+    return await redisTcpOnce(commands, Math.min(3000, REDIS_TIMEOUT));
   } catch (e) {
-    // Провайдер закрывает простаивающие соединения: одну повторную попытку делаем молча
     if (tcpLink) tcpClose(tcpLink);
-    return redisTcpOnce(commands);
+    return redisTcpOnce(commands, REDIS_TIMEOUT);
   }
 }
 

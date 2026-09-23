@@ -189,8 +189,15 @@
   }
 
   // Подтягиваем сообщения, которые отправили одноклассники с других телефонов
+  let syncing = false; // один запрос состояния за раз: на медленной сети они иначе копятся
   async function syncTeam(force = false) {
     if (!force && (busy || !sessionId || document.hidden)) return;
+    if (syncing) return;
+    syncing = true;
+    try { await syncTeamOnce(); } finally { syncing = false; }
+  }
+
+  async function syncTeamOnce() {
     try {
       const r = await api('/api/session?id=' + encodeURIComponent(sessionId));
       if (!state || (r.state.rev === state.rev && r.state.timer?.stage === state.timer?.stage)) { if (r.state.timer) applyTimer(r.state.timer); return; }
@@ -216,8 +223,14 @@
   const JOB_OVER = new Set(['done', 'error', 'skipped']);
   const jobsSettled = (w) => !w || (JOB_OVER.has(w.eval_status) && JOB_OVER.has(w.image_status));
 
+  let pumping = false;
   async function pumpJobs() {
-    if (!sessionId || document.hidden) return;
+    if (!sessionId || document.hidden || pumping) return;
+    pumping = true;
+    try { await pumpJobsOnce(); } finally { pumping = false; }
+  }
+
+  async function pumpJobsOnce() {
     const w = state?.work;
     // Останавливаемся, когда результат готов, а не когда итоги «опубликованы»:
     // в тестовом прогоне публикация включена сразу, но задачи ещё не посчитаны
