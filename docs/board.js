@@ -391,15 +391,18 @@
   function applyTimer(t) {
     if (!t || t.stage === 'lobby') { $('#time').textContent = '--:--'; label('Ждём старта '); return; }
     if (t.stage === 'finished') { clearInterval(tick); $('#time').textContent = '00:00'; label('Игра завершена '); return; }
-    tBase = { stage: t.stage, left: t.stage === 'play' ? t.left : t.left_answer, at: Date.now() };
+    tBase = { left: t.left || 0, over: t.over_by || 0, at: Date.now() };
     clearInterval(tick); paintTimer(); tick = setInterval(paintTimer, 1000);
   }
+  const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
   function paintTimer() {
     if (!tBase) return;
-    const left = Math.max(0, tBase.left - Math.floor((Date.now() - tBase.at) / 1000));
-    $('#time').textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
-    label(tBase.stage === 'play' ? 'Осталось ' : tBase.stage === 'answer' ? 'Финальный ответ ' : 'Время вышло ');
-    if (!left) clearInterval(tick);
+    // Часы не останавливают игру: после нуля показываем, сколько команды работают сверх времени
+    const gone = Math.floor((Date.now() - tBase.at) / 1000);
+    const left = tBase.left - gone;
+    $('#time').textContent = left > 0 ? mmss(left) : '+' + mmss(tBase.over + gone - Math.min(0, tBase.left));
+    label(left > 0 ? 'Осталось ' : 'Сверх времени ');
+    $('#timer').classList.toggle('over', left <= 0);
   }
 
   // --- Демо-режим: ?demo=1 — прогресс идёт сам, без учеников, без ключа и без запросов к серверу ---

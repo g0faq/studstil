@@ -387,7 +387,7 @@
     }
   }
 
-  // Кто уже в комнате ожидания: кнопка «Начать» включается, когда зашли все команды
+  // Кто уже в комнате ожидания. Начинать можно в любой момент — даже если зашли не все команды
   function startPoll() {
     clearInterval(poll);
     const tick = async () => {
@@ -406,18 +406,17 @@
         }
         const all = ready === teams.length;
         const btn = $('#start-btn');
-        btn.disabled = !all;
-        btn.textContent = all ? 'Начать игру' : `Ждём команды · ${ready} из ${teams.length}`;
+        btn.disabled = false;
+        btn.textContent = 'Начать игру';
         // Команд столько, сколько сценариев на сервере, — число не зашиваем
         $('#waiting').textContent = all
           ? 'Все команды на месте — можно начинать'
-          : `Кнопка «Начать» включится, когда зайдут все команды — их ${teams.length}`;
+          : `Подключились ${ready} из ${teams.length} — начать можно и сейчас, остальные войдут по коду позже`;
       } catch {}
     };
     tick(); poll = setInterval(tick, 2500);
   }
 
-  $('#start-btn').disabled = true;
   $('#start-btn').onclick = async () => {
     if ($('#start-btn').disabled) return;
     $('#start-btn').disabled = true;

@@ -26,6 +26,5 @@ export const config = {
   // Сквозной код: пройти игру в тестовом режиме, не запуская игру в админке
   testCode: process.env.TEST_CODE || '14235867',
   gameMinutes: num(process.env.GAME_MINUTES, 7),
-  answerSeconds: num(process.env.ANSWER_SECONDS, 60),
   dbPath: process.env.DB_PATH || 'data/bot.db',
 };

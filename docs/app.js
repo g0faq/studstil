@@ -140,7 +140,11 @@
     if (clean !== codeInput.value) codeInput.value = clean;
   };
   codeInput.oninput = () => { onlyDigits(); $('#code-err').textContent = ''; paintCode(); };
-  codeInput.onfocus = paintCode;
+  codeInput.onfocus = () => {
+    paintCode();
+    // Клавиатура выезжает не мгновенно: поле подтягиваем к виду, когда экран уже ужался
+    setTimeout(() => $('.code-field').scrollIntoView({ block: 'center', behavior: 'smooth' }), 320);
+  };
   codeInput.onblur = paintCode;
   // Курсор всегда в конце: иначе цифра вставится в середину, а ячейки покажут не то, что ждёт человек
   const toEnd = () => { const n = codeInput.value.length; try { codeInput.setSelectionRange(n, n); } catch {} };
@@ -708,43 +712,24 @@
   $('#solve-back').onclick = () => go(state?.finished ? 'done' : 'chat');
 
   // --- Таймер: считаем локально от последнего ответа сервера ---
+  // Часы ничего не запрещают: они показывают, сколько осталось, а после нуля — сколько идёт сверх времени.
   function applyTimer(t) {
     if (!t || t.stage === 'lobby' || t.stage === 'finished') { tBase = null; $('#timer').classList.add('hidden'); clearInterval(tick); return; }
-    tBase = { stage: t.stage, left: t.stage === 'play' ? t.left : t.left_answer, at: Date.now() };
+    tBase = { left: t.left || 0, over: t.over_by || 0, at: Date.now() };
     $('#timer').classList.remove('hidden');
     clearInterval(tick); paintTimer(); tick = setInterval(paintTimer, 1000);
   }
 
+  const mmss = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+
   function paintTimer() {
     if (!tBase) return;
-    const left = Math.max(0, tBase.left - Math.floor((Date.now() - tBase.at) / 1000));
+    const gone = Math.floor((Date.now() - tBase.at) / 1000);
+    const left = tBase.left - gone;
     const chip = $('#timer');
-    $('#timer-val').textContent = (tBase.stage === 'answer' ? 'Ответ · ' : '') +
-      `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
-    chip.classList.toggle('warn', tBase.stage === 'play' && left <= 60);
-    chip.classList.toggle('answer', tBase.stage !== 'play');
-    if (left === 0) { clearInterval(tick); syncTeam(true); }
-    lockByStage(tBase.stage);
-  }
-
-  // Время вышло: чат и карточка закрываются, остаётся только финальный ответ
-  function lockByStage(stage) {
-    const over = stage === 'over' || stage === 'finished';
-    const answerOnly = stage === 'answer' || over;
-    $('#composer').classList.toggle('hidden', answerOnly || !!state?.finished);
-    $('#chips').classList.toggle('hidden', answerOnly || !!state?.finished);
-    $('#hint-btn').classList.toggle('hidden', answerOnly);
-    document.querySelector('.solve-client')?.classList.toggle('hidden', answerOnly);
-    $('#solve-back').classList.toggle('hidden', answerOnly);
-    if (answerOnly && !state?.work) {
-      const visible = [...document.querySelectorAll('.screen:not(.hidden)')].map((s) => s.id)[0];
-      if (['chat', 'card', 'done'].includes(visible)) go('solve');
-    }
-    if (over && !state?.work) {
-      $('#solution').disabled = true;
-      $('#send-solution').disabled = true;
-      $('#solve-err').textContent = 'Время на ответ закончилось.';
-    }
+    $('#timer-val').textContent = left > 0 ? mmss(left) : '+' + mmss(tBase.over + gone - Math.min(0, tBase.left));
+    chip.classList.toggle('warn', left > 0 && left <= 60);
+    chip.classList.toggle('answer', left <= 0); // время вышло — просто другой цвет плашки
   }
 
   // --- Праздничные мелочи ---
@@ -821,6 +806,25 @@
   $('#restart-btn').onclick = resetToStart;
   $('#wait-exit').onclick = resetToStart;
 
+  // --- Клиентка в полный рост ---
+  const photoView = $('#photo-view');
+  function openPhoto() {
+    const c = state?.client;
+    const src = c?.photo_full || c?.photo;
+    if (!src) return;
+    const img = $('#photo-full');
+    img.src = src;
+    img.alt = `${c.name} — фотография клиентки`;
+    $('#photo-cap').textContent = `${c.name} · ${c.meta || ''}`.replace(/ · $/, '');
+    photoView.classList.remove('hidden');
+  }
+  const closePhoto = () => photoView.classList.add('hidden');
+  $('#card-photo').onclick = openPhoto;
+  $('#chat-photo').onclick = openPhoto;
+  $('#photo-close').onclick = closePhoto;
+  photoView.onclick = (e) => { if (e.target === photoView) closePhoto(); };
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !photoView.classList.contains('hidden')) closePhoto(); });
+
   $('#dossier-btn').onclick = () => {
     const d = $('#dossier'); d.classList.toggle('hidden');
     $('#dossier-btn').setAttribute('aria-expanded', String(!d.classList.contains('hidden')));
@@ -831,7 +835,12 @@
   const vv = window.visualViewport;
   if (vv) {
     const fitViewport = () => {
-      document.documentElement.style.setProperty('--vvh', Math.round(vv.height) + 'px');
+      const h = Math.round(vv.height);
+      document.documentElement.style.setProperty('--vvh', h + 'px');
+      // Экран стал низким — значит открыта клавиатура: заставка ужимается, поле кода остаётся видимым
+      const tight = h < 480 ? '2' : h < 620 ? '1' : '';
+      if (tight) document.documentElement.dataset.tight = tight;
+      else delete document.documentElement.dataset.tight;
       if (window.scrollY) window.scrollTo(0, 0);
     };
     vv.addEventListener('resize', fitViewport);
@@ -862,10 +871,8 @@
         $('#solution').value = store.get(draftKey(restoring)) || '';
         apply(r.state);
         // Всё переживает перезагрузку: экран выбираем по состоянию с сервера
-        const stage = r.state.timer?.stage;
         go(r.state.phase === 'lobby' ? 'wait'
           : r.state.work ? workScreen()
-          : stage === 'answer' || stage === 'over' ? 'solve'
           : r.state.finished ? 'done' : 'chat');
       })
       .catch(() => store.set('bc-session', null));

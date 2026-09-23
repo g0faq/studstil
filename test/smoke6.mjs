@@ -9,7 +9,7 @@ const mock=(ids)=>async()=>({reply:'р',revealed_fact_ids:ids});
 
 
 const g = await E.createGame(['Акварель','Б','В','Г']);
-a(g.duration_sec === 420 && g.answer_sec === 60, 'по умолчанию 7 минут + 1 минута на ответ');
+a(g.duration_sec === 420, 'по умолчанию игра на 7 минут');
 await E.startGame();
 const { sessionId } = await E.enterCode(g.teams[0].code, 'd1');
 let st = await E.publicState(sessionId);
@@ -29,18 +29,25 @@ a(r.submission.version === 1, 'работу можно сдать, не раск
 const r2 = await E.submitSolution(sessionId, 'Второй вариант решения, достаточно длинный для проверки.');
 a(r2.already, 'финальная работа только одна');
 
-// перематываем время: этап ответа
+// перематываем время: часы идут дальше, но ничего не закрывают
 const game = await store.getMeta('game');
 game.started_at = new Date(Date.now() - 421 * 1000).toISOString();
 await store.setMeta('game', game);
-a(E.stageOf(game).stage === 'answer', 'после 7 минут — этап ответа');
-a((await E.handleMessage(sessionId, 'вопрос', { llm: mock([]) })).error === 'time_up', 'чат закрыт после сигнала');
-a((await E.nextTrigger(sessionId)).error === 'time_up', 'подсказки тоже закрыты');
+const over = E.stageOf(game);
+a(over.stage === 'play' && over.left === 0 && over.over_by >= 1, 'после 7 минут игра продолжается, идёт счёт сверх времени', JSON.stringify(over));
+a(!(await E.handleMessage(sessionId, 'вопрос', { llm: mock([]) })).error, 'чат работает и после сигнала');
+a((await E.nextTrigger(sessionId)).error !== 'time_up', 'подсказки время не закрывает');
 const { sessionId: s2 } = await E.enterCode(g.teams[1].code, 'd2');
-a((await E.submitSolution(s2, 'Одежда: жакет. Волосы: длина сохранена. Макияж: лёгкий. Успеваем в последнюю минуту.')).submission.version === 1, 'в минуту ответа работа принимается');
+a((await E.submitSolution(s2, 'Одежда: жакет. Волосы: длина сохранена. Макияж: лёгкий. Успеваем в последнюю минуту.')).submission.version === 1, 'работа принимается после сигнала');
 
-game.started_at = new Date(Date.now() - 520 * 1000).toISOString();
+game.started_at = new Date(Date.now() - 5200 * 1000).toISOString();
 await store.setMeta('game', game);
-a(E.stageOf(game).stage === 'over', 'время вышло совсем');
+a(E.stageOf(game).over_by > 4000, 'счёт сверх времени растёт');
 const { sessionId: s3 } = await E.enterCode(g.teams[2].code, 'd3');
-a((await E.submitSolution(s3, 'Поздний ответ, который уже не должен приниматься сервером вообще.')).error === 'time_over', 'после минуты ответ не принять');
+a((await E.submitSolution(s3, 'Поздний ответ: часы игру не закрывают, работу принимаем.')).submission.version === 1, 'поздняя работа тоже принимается');
+
+// закрывает игру только преподаватель
+await E.finishGame();
+a(E.stageOf(await store.getMeta('game')).stage === 'finished', 'преподаватель завершил игру');
+const { sessionId: s4 } = await E.enterCode(g.teams[3].code, 'd4');
+a((await E.submitSolution(s4, 'После завершения игры работу уже не принимаем ни от кого.')).error === 'time_over', 'после завершения работа не принимается');

@@ -120,7 +120,6 @@ async function runMessage(sessionId, text, { llm, deviceId }) {
   const g = isTestSession(sessionId) ? null : await getGame();
   if (g && g.phase === 'lobby') return { error: 'not_started', reply: null, progress: state.progress, finished: false };
   if (g && g.phase === 'finished') return { error: 'game_over', reply: null, progress: state.progress, finished: false };
-  if (g && stageOf(g).stage !== 'play') return { error: 'time_up', reply: null, progress: state.progress, finished: false };
   text = String(text || '').trim();
   if (!text) return { error: 'empty', reply: null, progress: state.progress, finished: false };
   if (text.length > config.maxInputChars) return { error: 'too_long', reply: null, progress: state.progress, finished: false };
@@ -196,6 +195,7 @@ export async function publicState(sessionId) {
       accent: ui.accent || '#FF7A1A', soft: ui.soft || 'rgba(255,122,26,0.4)',
       accent_green: ui.accent_green || null, soft_green: ui.soft_green || null,
       photo: ui.photo || null, photo_green: ui.photo_green || null,
+      photo_full: ui.photo_full || null, // команда может посмотреть клиентку в полный рост
       card_hint: ui.card_hint || sc.greeting, chips: ui.chips || [],
     },
     revealed, progress, finished: session.finished, messages,
@@ -217,7 +217,7 @@ export async function publicState(sessionId) {
     } : null,
     hints: session.nudges || 0,
     hints_left: Math.max(0, (sc.triggers?.length || 0) - (session.nudges || 0)),
-    timer: test ? testTimer(session) : { ...stageOf(game), duration_sec: game?.duration_sec || null, answer_sec: game?.answer_sec || null },
+    timer: test ? testTimer(session) : { ...stageOf(game), duration_sec: game?.duration_sec || null },
     devices: (session.devices || []).length,
     rev: messages.length + session.revealed.length + (session.finished ? 1 : 0) + (session.nudges || 0) * 7
       + (session.submission ? 100 + session.submission.version * 3 : 0)
@@ -244,7 +244,6 @@ async function runTrigger(sessionId) {
   const st = await getSessionState(sessionId);
   if (!st) return { error: 'no_session' };
   const game = isTestSession(sessionId) ? null : await getGame();
-  if (game && stageOf(game).stage !== 'play') return { error: 'time_up' };
   const list = st.scenario.triggers || [];
   const i = st.session.nudges || 0;
   if (i >= list.length) return { error: 'no_hints' };
@@ -313,19 +312,19 @@ export const getGame = () => store.getMeta(GAME);
 
 /**
  * Этап по часам сервера:
- * 'lobby' — ждём старта, 'play' — идёт игра, 'answer' — только финальный ответ,
- * 'over' — время вышло, 'finished' — преподаватель завершил игру.
+ * 'lobby' — ждём старта, 'play' — игра идёт, 'finished' — преподаватель завершил игру.
+ * Само время игру не останавливает: left доходит до нуля, дальше растёт over_by.
  */
 export function stageOf(game) {
-  if (!game) return { stage: 'play', left: null, left_answer: null };
-  if (game.phase === 'lobby') return { stage: 'lobby', left: null, left_answer: null };
-  if (game.phase === 'finished') return { stage: 'finished', left: 0, left_answer: 0 };
+  if (!game) return { stage: 'play', left: null, over_by: 0 };
+  if (game.phase === 'lobby') return { stage: 'lobby', left: null, over_by: 0 };
+  if (game.phase === 'finished') return { stage: 'finished', left: 0, over_by: 0 };
   const dur = game.duration_sec || 600;
-  const ans = game.answer_sec || 60;
   const passed = (Date.now() - new Date(game.started_at).getTime()) / 1000;
-  if (passed < dur) return { stage: 'play', left: Math.ceil(dur - passed), left_answer: ans };
-  if (passed < dur + ans) return { stage: 'answer', left: 0, left_answer: Math.ceil(dur + ans - passed) };
-  return { stage: 'over', left: 0, left_answer: 0 };
+  // Часы ничего не закрывают: после нуля просто идёт счёт сверх времени, конец объявляет преподаватель
+  return passed < dur
+    ? { stage: 'play', left: Math.ceil(dur - passed), over_by: 0 }
+    : { stage: 'play', left: 0, over_by: Math.floor(passed - dur) };
 }
 
 /** Преподаватель ввёл названия команд → выдаём случайные коды. Сценарии раздаются по порядку. */
@@ -336,7 +335,6 @@ export async function createGame(names) {
   const game = {
     phase: 'lobby',
     duration_sec: config.gameMinutes * 60,
-    answer_sec: config.answerSeconds,
     created_at: new Date().toISOString(),
     started_at: null,
     teams: scenarios.map((sc, i) => ({
@@ -428,14 +426,13 @@ export async function publishResults() {
   return game;
 }
 
-/** Часы тестового прогона: те же 7 минут плюс минута на ответ, но от входа в тест. */
+/** Часы тестового прогона: те же минуты, но от входа в тест. Игру они не останавливают. */
 function testTimer(session) {
   const dur = config.gameMinutes * 60;
-  const ans = config.answerSeconds;
   const passed = (Date.now() - new Date(session.created_at).getTime()) / 1000;
-  if (passed < dur) return { stage: 'play', left: Math.ceil(dur - passed), left_answer: ans, duration_sec: dur, answer_sec: ans };
-  if (passed < dur + ans) return { stage: 'answer', left: 0, left_answer: Math.ceil(dur + ans - passed), duration_sec: dur, answer_sec: ans };
-  return { stage: 'over', left: 0, left_answer: 0, duration_sec: dur, answer_sec: ans };
+  return passed < dur
+    ? { stage: 'play', left: Math.ceil(dur - passed), over_by: 0, duration_sec: dur }
+    : { stage: 'play', left: 0, over_by: Math.floor(passed - dur), duration_sec: dur };
 }
 
 /**
@@ -543,7 +540,7 @@ export async function submitSolution(sessionId, text) {
   const game = test ? null : await getGame();
   const stage = test ? 'play' : stageOf(game).stage;
   if (stage === 'lobby') return { error: 'not_started' };
-  if (stage === 'over' || stage === 'finished') return { error: 'time_over' };
+  if (stage === 'finished') return { error: 'time_over' };
 
   text = String(text || '').trim();
   if (text.length < 40) return { error: 'too_short' };
