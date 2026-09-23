@@ -152,6 +152,12 @@
       },
     ];
 
+    // Инструкцию смотрят с проектора всем классом: показ идёт медленнее обычного интерфейса
+    const SLOW = 1.85;
+    const slowHtml = (html) => html
+      .replace(/--d:\s*([\d.]+)s/g, (_, v) => `--d:${(+v * SLOW).toFixed(2)}s`)
+      .replace(/--p:\s*([\d.]+)s/g, (_, v) => `--p:${(+v * SLOW).toFixed(2)}s`);
+
     const N = SCENES.length;
     let idx = 0, playing = false, flat = true, listed = false;
     let jobs = [], ids = [], t0 = 0, elapsed = 0, dur = 0;
@@ -162,7 +168,7 @@
       root.querySelectorAll('[data-type]').forEach((el) => {
         const parts = el.dataset.type.split('|').map((p) => {
           const a = p.indexOf(':'), b = p.indexOf(':', a + 1);
-          return { at: +p.slice(0, a), step: +p.slice(a + 1, b), t: p.slice(b + 1) };
+          return { at: +p.slice(0, a) * SLOW, step: +p.slice(a + 1, b) * SLOW, t: p.slice(b + 1) };
         });
         if (isFlat) { el.textContent = parts[parts.length - 1].t; return; }
         el.textContent = '';
@@ -176,7 +182,7 @@
       });
       root.querySelectorAll('[data-seq]').forEach((el) => {
         if (isFlat) return; // статичный кадр: остаётся конечное значение из --to
-        const steps = el.dataset.seq.split(',').map((s) => { const i = s.indexOf(':'); return { at: +s.slice(0, i), v: s.slice(i + 1) }; });
+        const steps = el.dataset.seq.split(',').map((s) => { const i = s.indexOf(':'); return { at: +s.slice(0, i) * SLOW, v: s.slice(i + 1) }; });
         el.style.setProperty('--to', steps[0].v);
         let prev = steps[0].v;
         for (const s of steps.slice(1)) {
@@ -191,14 +197,14 @@
         if (isFlat) return;
         el.textContent = el.dataset.from || '';
         for (const s of el.dataset.set.split(',')) {
-          const i = s.indexOf(':'), at = +s.slice(0, i), v = s.slice(i + 1);
+          const i = s.indexOf(':'), at = +s.slice(0, i) * SLOW, v = s.slice(i + 1);
           out.push({ at, fn: () => { el.textContent = v; el.classList.remove('bump'); el.getBoundingClientRect(); el.classList.add('bump'); } });
         }
       });
       root.querySelectorAll('[data-count]').forEach((el) => {
         const to = parseInt(el.textContent, 10) || 0;
         if (isFlat) return;
-        const from = +el.dataset.count || 0, at = +el.dataset.at || 0, d = +el.dataset.dur || 1000, n = 26;
+        const from = +el.dataset.count || 0, at = (+el.dataset.at || 0) * SLOW, d = (+el.dataset.dur || 1000) * SLOW, n = 26;
         el.textContent = String(from);
         for (let i = 1; i <= n; i++) {
           const p = i / n, v = String(Math.round(from + (to - from) * (1 - Math.pow(1 - p, 3))));
@@ -220,11 +226,11 @@
       halt();
       idx = ((i % N) + N) % N; elapsed = 0;
       const sc = SCENES[idx];
-      dur = sc.dur;
+      dur = Math.round(sc.dur * SLOW);
       flat = reduce || !play;
       wrap.classList.toggle('flat', flat);
       wrap.classList.remove('paused');
-      stage.innerHTML = sc.html();
+      stage.innerHTML = flat ? sc.html() : slowHtml(sc.html());
       jobs = collect(stage, flat);
       kicker.textContent = `Сцена ${idx + 1} из ${N}`;
       title.textContent = sc.title;

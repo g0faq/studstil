@@ -11,11 +11,11 @@
 /* ---------- Раскладка: подпись + телефон ---------- */
 .dm-wrap { display: flex; align-items: center; justify-content: center; gap: clamp(18px, 3.4vw, 64px); width: 100%; }
 .dm-side { flex: 1 1 300px; max-width: 460px; text-align: left; display: flex; flex-direction: column; gap: clamp(7px, 1.2vh, 14px); }
-.dm-kicker { font-family: Unbounded, sans-serif; font-weight: 600; font-size: clamp(11px, .85vw, 15px);
+.dm-kicker { font-family: Unbounded, sans-serif; font-weight: 600; font-size: clamp(14px, 1.2vw, 22px);
   letter-spacing: .18em; text-transform: uppercase; color: var(--accent); }
 .dm-title { font-family: Unbounded, sans-serif; font-weight: 800; letter-spacing: -.02em; line-height: 1.05;
-  font-size: clamp(22px, 2.5vw, 44px); margin: 0; }
-.dm-text { font-size: clamp(14px, 1.15vw, 21px); line-height: 1.5; color: var(--dim); margin: 0; min-height: 3em; }
+  font-size: clamp(32px, 4.2vw, 76px); margin: 0; line-height: 1.02; }
+.dm-text { font-size: clamp(19px, 1.9vw, 34px); line-height: 1.42; color: var(--ink); opacity: .88; margin: 0; min-height: 3em; max-width: 22ch; }
 .dm-swap { animation: dmSwap .45s var(--ease-out) both; }
 @keyframes dmSwap { from { opacity: 0; transform: translateY(10px); filter: blur(6px); } }
 
@@ -29,7 +29,7 @@
 @keyframes dmDot { from { width: 0; } to { width: 100%; } }
 
 .dm-ctl { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 2px; }
-.dm-note { font-size: clamp(12px, .95vw, 16px); color: var(--dim); line-height: 1.4; }
+.dm-note { font-size: clamp(14px, 1.05vw, 20px); color: var(--dim); line-height: 1.4; }
 
 /* ---------- Корпус телефона ---------- */
 .dm-phone { position: relative; flex: 0 0 auto; --pw: clamp(184px, min(26vw, 30vh), 290px);
