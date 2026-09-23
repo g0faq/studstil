@@ -218,7 +218,7 @@
     $('#chips').classList.toggle('hidden', finished);
     const hidden = p.required_total - req.length;
     const box = $('#dossier'); box.replaceChildren();
-    for (const f of [...req, ...bonus]) box.append(factEl(f.required ? f.label : `${f.label} · бонус`, f.text, true));
+    for (const f of [...req, ...bonus]) box.append(factEl(f.required ? f.label : `${f.label} · дополнительно`, f.text, true));
     for (let i = 0; i < hidden; i++) box.append(factEl('Не раскрыто', '• • • • • • • • • •', false));
   }
 
@@ -787,6 +787,11 @@
     const d = $('#dossier'); d.classList.toggle('hidden');
     $('#dossier-btn').setAttribute('aria-expanded', String(!d.classList.contains('hidden')));
   };
+
+  // Старый Safari умеет прокручивать даже overflow: hidden, когда фокус уходит на кнопку у края.
+  // Возвращаем экран на место, иначе интерфейс уезжает вбок.
+  const appBox = $('#app');
+  appBox.addEventListener('scroll', () => { if (appBox.scrollLeft || appBox.scrollTop) { appBox.scrollLeft = 0; appBox.scrollTop = 0; } });
 
   // --- Поля ввода ---
   // Браузер сам возвращает в поля то, что было напечатано до перезагрузки, и текст выглядит как чужая подсказка.
