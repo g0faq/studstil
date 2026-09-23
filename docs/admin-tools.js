@@ -21,7 +21,9 @@
   if (![...document.styleSheets].some((s) => (s.href || '').includes('admin-tools.css'))) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = ROOT + 'admin-tools.css';
+    // берём версию из адреса самого скрипта, чтобы стили не приходили из кэша старой сборки
+    const ver = (document.currentScript?.src || '').split('?')[1];
+    link.href = ROOT + 'admin-tools.css' + (ver ? '?' + ver : '');
     document.head.append(link);
   }
 

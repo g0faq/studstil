@@ -229,9 +229,19 @@
     d.append(l, t); return d;
   }
 
-  // Модель иногда заканчивает ответ пустыми строками: в pre-wrap они превращаются в пустоту под текстом
-  const tidy = (t) => String(t == null ? '' : t).replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
-  function bubble(cls, text) { const d = document.createElement('div'); d.className = 'msg ' + cls; d.textContent = tidy(text); return d; }
+  // Текст модели приходит как попало: с пустыми строками, отступами и переносами в конце.
+  // Поэтому не выводим его как есть, а разбираем на абзацы — пустым строкам просто неоткуда взяться.
+  const lines = (t) => String(t == null ? '' : t)
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((x) => x.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  function bubble(cls, text) {
+    const d = document.createElement('div');
+    d.className = 'msg ' + cls;
+    for (const line of lines(text)) { const p = document.createElement('p'); p.textContent = line; d.append(p); }
+    return d;
+  }
 
   function renderMsgs(typing = false) {
     const box = $('#msgs'); box.replaceChildren();
@@ -240,7 +250,7 @@
       // Раскрытые факты приходят с сервера: их видят все телефоны команды, а не только тот, где спросили
       const reveals = m.reveals || [];
       const hit = reveals.length ? ' hit' : '';
-      box.append(bubble(m.who + hit + (hit && !old ? ' reveal' : '') + old, m.text));
+      if (lines(m.text).length) box.append(bubble(m.who + hit + (hit && !old ? ' reveal' : '') + old, m.text));
       for (const label of reveals) {
         const st = document.createElement('div');
         st.className = 'stamp' + (old ? '' : ' fresh');

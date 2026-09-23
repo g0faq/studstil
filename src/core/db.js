@@ -7,6 +7,10 @@ import net from 'node:net';
 import tls from 'node:tls';
 import { config } from '../config.js';
 
+// Модель иногда добавляет в конец ответа пустые строки: в чате они превращаются в пустоту под текстом
+export const tidyText = (t) => String(t == null ? '' : t).replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+
+
 const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const REDIS_TCP = process.env.REDIS_URL; // Redis for Vercel: redis://user:pass@host:port или rediss://
@@ -118,7 +122,7 @@ const redisStore = {
     return ids.length;
   },
   async addMessage(id, scenarioId, role, content, revealed = null) {
-    const m = JSON.stringify({ role, content, scenario_id: scenarioId, revealed, created_at: now() });
+    const m = JSON.stringify({ role, content: tidyText(content), scenario_id: scenarioId, revealed, created_at: now() });
     const cmds = [['RPUSH', `log:${id}`, m], ['SADD', 'chats', String(id)]];
     if (role === 'user' || role === 'assistant') cmds.push(['RPUSH', `h:${id}`, m]);
     await redis(...cmds);
@@ -234,7 +238,7 @@ const sqliteStore = {
   },
   async addMessage(id, scenarioId, role, content, revealed = null) {
     (await getSqlite()).prepare('INSERT INTO messages (chat_id, scenario_id, role, content, revealed, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(String(id), scenarioId, role, content, revealed ? JSON.stringify(revealed) : null, now());
+      .run(String(id), scenarioId, role, tidyText(content), revealed ? JSON.stringify(revealed) : null, now());
   },
   async history(id, limit) {
     return (await getSqlite()).prepare(`SELECT role, content, revealed FROM messages WHERE chat_id = ? AND archived = 0 AND role IN ('user','assistant')
