@@ -262,6 +262,13 @@ export async function boardState() {
       const group = sessions.filter((s) => s.scenario_id === sc.id);
       const union = new Set(group.flatMap((s) => s.revealed));
       const req = sc.facts.filter((f) => f.required);
+      // Отметки на табло загораются по порядку находки, а не по порядку в сценарии:
+      // факт, найденный первым, занимает первое деление, каким бы он ни был.
+      const order = [];
+      for (const s of group) for (const id of s.revealed || []) if (!order.includes(id)) order.push(id);
+      const reqIds = new Set(req.map((f) => f.id));
+      const foundReq = order.filter((id) => reqIds.has(id));
+      const labelOf = (id) => sc.facts.find((f) => f.id === id)?.label || id;
       return {
         id: sc.id, name: sc.persona.name, age: sc.persona.age, letter: sc.persona.name[0],
         team: game?.teams.find((t) => t.scenario_id === sc.id)?.name
@@ -272,8 +279,8 @@ export async function boardState() {
         sessions: group.reduce((n, s) => n + Math.max(1, (s.devices || []).length), 0), finished: group.some((s) => s.finished),
         score: group.map((s) => s.solution?.score).find((v) => v !== undefined) ?? null,
         hints: group.reduce((n, s) => n + (s.nudges || 0), 0),
-        done: req.filter((f) => union.has(f.id)).length, total: req.length,
-        tags: req.map((f) => ({ label: f.label || f.id, on: union.has(f.id) })),
+        done: foundReq.length, total: req.length,
+        tags: req.map((f, i) => (foundReq[i] ? { label: labelOf(foundReq[i]), on: true } : { label: '', on: false })),
         extra: sc.facts.filter((f) => !f.required && union.has(f.id)).map((f) => f.label || f.id),
       };
     });

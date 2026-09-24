@@ -50,7 +50,7 @@
 
   /* Кто бежит */
   .who { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: calc(var(--u) * .85); min-width: 0; }
-  .who .avatar { width: calc(var(--u) * 2.7); height: calc(var(--u) * 2.7); font-size: calc(var(--u) * 1.1); }
+  .who .avatar { width: calc(var(--u) * 3.7); height: calc(var(--u) * 3.7); font-size: calc(var(--u) * 1.5); }
   .who-text { min-width: 0; display: flex; flex-direction: column; gap: calc(var(--u) * .12); }
   .team-name { font-family: Unbounded, sans-serif; font-weight: 700; font-size: calc(var(--u) * 1.45);
     letter-spacing: -.02em; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -67,7 +67,7 @@
      Класс именно .lane-track: .track в общем styles.css — это полоса прогресса в приложении
      студента, у неё задана высота 8px, и трасса от неё схлопывалась. */
   .lane-track { display: grid; grid-template-rows: auto auto; row-gap: calc(var(--u) * .4); min-width: 0; }
-  .rail { position: relative; height: calc(var(--u) * 2.7); }
+  .rail { position: relative; height: calc(var(--u) * 3.4); }
   .rail-in { position: absolute; left: 0; right: calc(var(--u) * 2.4); top: 0; bottom: 0; }
   .line { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: calc(var(--u) * .62);
     border-radius: 99px; background: var(--chip); border: 1px solid var(--stroke); overflow: hidden; }
@@ -92,7 +92,7 @@
 
   .runner { position: absolute; left: var(--p); top: 50%; transition: left 1.1s cubic-bezier(.34,1.1,.64,1); }
   .runner .avatar { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
-    width: calc(var(--u) * 2.4); height: calc(var(--u) * 2.4); font-size: calc(var(--u) * 1);
+    width: calc(var(--u) * 3.1); height: calc(var(--u) * 3.1); font-size: calc(var(--u) * 1.25);
     box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 0 3px color-mix(in srgb, var(--accent) 60%, transparent); }
   .lane.done .runner .avatar { box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 0 4px var(--accent), 0 0 40px color-mix(in srgb, var(--accent) 70%, transparent); }
   .flag { position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: calc(var(--u) * 1.7);
@@ -156,7 +156,7 @@
     .info .rrow { justify-content: flex-start; }
     .wrow { flex-wrap: wrap; }
     .lane-track { grid-area: track; }
-    .rail { height: calc(var(--u) * 2.6); }
+    .rail { height: calc(var(--u) * 3.2); }
     .big { font-size: calc(var(--u) * 2.4); }
   }
 
@@ -165,9 +165,9 @@
     h1 { font-size: min(4.2vw, 7.4vh); }
     .wrap { gap: calc(var(--u) * 1); padding: calc(var(--u) * 1.2) calc(var(--u) * 2.2); }
     .lane { padding: calc(var(--u) * .5) calc(var(--u) * 1.3); }
-    .rail { height: calc(var(--u) * 2.3); }
-    .runner .avatar { width: calc(var(--u) * 2); height: calc(var(--u) * 2); font-size: calc(var(--u) * .85); }
-    .who .avatar { width: calc(var(--u) * 2.3); height: calc(var(--u) * 2.3); }
+    .rail { height: calc(var(--u) * 2.9); }
+    .runner .avatar { width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); font-size: calc(var(--u) * 1.05); }
+    .who .avatar { width: calc(var(--u) * 3.1); height: calc(var(--u) * 3.1); }
   }
 
   /* Панели снизу забирают высоту — вся разметка ужимается через одну переменную */
